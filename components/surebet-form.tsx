@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { calculateStakes, calculateExpectedProfit, calculateROI, formatMoney } from '@/lib/calc'
+import { calculateExpectedProfitFromStakes, calculateROI, formatMoney } from '@/lib/calc'
 import ComboboxInput from './combobox-input'
 import { useCurrency } from './currency-context'
 
@@ -107,19 +107,19 @@ interface LegFormState {
   bookmaker: string
   market: string
   odds: string
+  stake: string
 }
 
 interface SurebetFormProps {
   onCreated: () => void
 }
 
-const EMPTY_LEG: LegFormState = { account: '', bookmaker: '', market: '', odds: '' }
+const EMPTY_LEG: LegFormState = { account: '', bookmaker: '', market: '', odds: '', stake: '' }
 
 export default function SurebetForm({ onCreated }: SurebetFormProps) {
   const { currency } = useCurrency()
   const [matchName, setMatchName] = useState('')
   const [sport, setSport] = useState('')
-  const [bank, setBank] = useState('')
   const [comment, setComment] = useState('')
   const [legs, setLegs] = useState<LegFormState[]>(() => [
     { ...EMPTY_LEG },
@@ -128,20 +128,25 @@ export default function SurebetForm({ onCreated }: SurebetFormProps) {
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
-  const parsedBank = useMemo(() => parseFloat(bank) || 0, [bank])
   const parsedOdds = useMemo(
     () => legs.map((leg) => parseFloat(leg.odds) || 0),
     [legs]
   )
+  const parsedStakes = useMemo(
+    () => legs.map((leg) => parseFloat(leg.stake) || 0),
+    [legs]
+  )
+  const totalStake = useMemo(
+    () => parsedStakes.reduce((acc, s) => acc + s, 0),
+    [parsedStakes]
+  )
 
-  const { stakes, expectedProfit } = useMemo(() => {
-    if (parsedBank > 0 && parsedOdds.every((o) => o > 1)) {
-      const s = calculateStakes(parsedBank, parsedOdds)
-      const profit = calculateExpectedProfit(parsedBank, parsedOdds)
-      return { stakes: s, expectedProfit: profit }
+  const expectedProfit = useMemo(() => {
+    if (totalStake > 0 && parsedOdds.every((o) => o > 1)) {
+      return calculateExpectedProfitFromStakes(parsedStakes, parsedOdds)
     }
-    return { stakes: legs.map(() => 0), expectedProfit: 0 }
-  }, [parsedBank, parsedOdds, legs])
+    return 0
+  }, [totalStake, parsedStakes, parsedOdds])
 
   const updateLeg = useCallback((index: number, field: keyof LegFormState, value: string) => {
     setLegs((prev) => {
@@ -167,7 +172,6 @@ export default function SurebetForm({ onCreated }: SurebetFormProps) {
   const resetForm = useCallback(() => {
     setMatchName('')
     setSport('')
-    setBank('')
     setComment('')
     setLegs([{ ...EMPTY_LEG }, { ...EMPTY_LEG }])
   }, [])
@@ -176,16 +180,17 @@ export default function SurebetForm({ onCreated }: SurebetFormProps) {
     return (
       matchName.trim() !== '' &&
       sport.trim() !== '' &&
-      parsedBank > 0 &&
+      totalStake > 0 &&
       legs.every(
         (leg) =>
           leg.account.trim() !== '' &&
           leg.bookmaker.trim() !== '' &&
           leg.market.trim() !== '' &&
-          parseFloat(leg.odds) > 1
+          parseFloat(leg.odds) > 1 &&
+          parseFloat(leg.stake) > 0
       )
     )
-  }, [matchName, sport, parsedBank, legs])
+  }, [matchName, sport, totalStake, legs])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -203,9 +208,9 @@ export default function SurebetForm({ onCreated }: SurebetFormProps) {
       return
     }
 
-    const total = parsedBank
+    const total = totalStake
     const odds = legs.map((leg) => parseFloat(leg.odds))
-    const calculatedStakes = calculateStakes(total, odds)
+    const stakes = parsedStakes
 
     const { data: surebet, error: sbError } = await supabase
       .from('surebets')
@@ -232,7 +237,7 @@ export default function SurebetForm({ onCreated }: SurebetFormProps) {
         bookmaker: leg.bookmaker.trim(),
         market: leg.market.trim(),
         odds: odds[idx],
-        stake: calculatedStakes[idx],
+        stake: stakes[idx],
       }))
     )
 
@@ -274,19 +279,6 @@ export default function SurebetForm({ onCreated }: SurebetFormProps) {
           required
           className={inputClass}
         />
-        <div>
-          <label className="block text-xs text-gray-400 mb-1">Общий банк</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={bank}
-            onChange={(e) => setBank(e.target.value)}
-            className={inputClass}
-            placeholder="2000"
-            required
-          />
-        </div>
         <div>
           <label className="block text-xs text-gray-400 mb-1">Комментарий к вилке</label>
           <input
@@ -361,16 +353,30 @@ export default function SurebetForm({ onCreated }: SurebetFormProps) {
                 placeholder="Коэффициент"
                 required
               />
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={leg.stake}
+                onChange={(e) => updateLeg(idx, 'stake', e.target.value)}
+                className={inputClass}
+                placeholder={`Ставка (${currency === 'USD' ? '$' : '€'})`}
+                required
+              />
             </div>
           ))}
         </div>
       </div>
 
       <div className="glass rounded-xl p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4 text-sm">
-        {legs.map((_, idx) => (
+        <div>
+          <span className="text-gray-400">Общий банк:</span>{' '}
+          <span className="font-semibold text-white">{formatMoney(totalStake, currency)}</span>
+        </div>
+        {legs.map((leg, idx) => (
           <div key={idx}>
             <span className="text-gray-400">Ставка плеча {idx + 1}:</span>{' '}
-            <span className="font-semibold text-white">{formatMoney(stakes[idx] || 0, currency)}</span>
+            <span className="font-semibold text-white">{formatMoney(parseFloat(leg.stake) || 0, currency)}</span>
           </div>
         ))}
         <div>
@@ -378,7 +384,7 @@ export default function SurebetForm({ onCreated }: SurebetFormProps) {
           <span
             className={`font-semibold ${expectedProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}
           >
-            {formatMoney(expectedProfit, currency)} ({calculateROI(expectedProfit, parsedBank).toFixed(2)}%)
+            {formatMoney(expectedProfit, currency)} ({calculateROI(expectedProfit, totalStake).toFixed(2)}%)
           </span>
         </div>
       </div>

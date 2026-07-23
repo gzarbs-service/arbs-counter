@@ -29,6 +29,14 @@ export function calculateExpectedProfit(totalBank: number, odds: number[]): numb
   return Number((payout - totalBank).toFixed(2))
 }
 
+export function calculateExpectedProfitFromStakes(stakes: number[], odds: number[]): number {
+  if (stakes.length === 0 || odds.length === 0) return 0
+  const total = stakes.reduce((acc, s) => acc + s, 0)
+  if (total === 0) return 0
+  const payout = stakes[0] * odds[0]
+  return Number((payout - total).toFixed(2))
+}
+
 export function calculateROI(profit: number, bank: number): number {
   if (!bank) return 0
   return Number(((profit / bank) * 100).toFixed(2))
