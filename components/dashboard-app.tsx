@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Profile, SurebetWithLegs } from '@/lib/types'
+import { Account, Profile, SurebetWithLegs } from '@/lib/types'
 import { CurrencyProvider } from './currency-context'
 import StatsPanel from './stats-panel'
 import SurebetForm from './surebet-form'
 import SurebetCard from './surebet-card'
+import AccountsPanel from './accounts-panel'
 import AdminPanel from './admin-panel'
+import FiltersPanel, { Filters } from './filters-panel'
+import CsvExport from './csv-export'
 import CurrencySelect from './currency-select'
 
 interface DashboardAppProps {
@@ -16,6 +19,7 @@ interface DashboardAppProps {
   initialSurebets: SurebetWithLegs[]
   initialUsernames?: Record<string, string>
   initialProfiles?: Profile[]
+  initialAccounts?: Account[]
 }
 
 export default function DashboardApp({
@@ -23,12 +27,23 @@ export default function DashboardApp({
   initialSurebets,
   initialUsernames = {},
   initialProfiles = [],
+  initialAccounts = [],
 }: DashboardAppProps) {
   const [profile] = useState<Profile | null>(initialProfile)
   const [surebets, setSurebets] = useState<SurebetWithLegs[]>(initialSurebets)
+  const [accounts, setAccounts] = useState<Account[]>(initialAccounts)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showAdmin, setShowAdmin] = useState(false)
+  const [showAccounts, setShowAccounts] = useState(false)
+  const [filters, setFilters] = useState<Filters>({
+    worker: '',
+    bookmaker: '',
+    sport: '',
+    status: '',
+    dateFrom: '',
+    dateTo: '',
+  })
   const [usernames, setUsernames] = useState<Record<string, string>>(initialUsernames)
   const router = useRouter()
   const supabase = createClient()
@@ -78,6 +93,41 @@ export default function DashboardApp({
     setLoading(false)
   }, [isAdmin, supabase])
 
+  const filteredSurebets = useMemo(() => {
+    return surebets.filter((s) => {
+      if (filters.worker && s.user_id !== filters.worker) return false
+      if (filters.sport && s.sport !== filters.sport) return false
+      if (filters.status && s.status !== filters.status) return false
+      if (filters.bookmaker && !s.legs.some((l) => l.bookmaker === filters.bookmaker)) return false
+      if (filters.dateFrom) {
+        const from = new Date(filters.dateFrom)
+        if (new Date(s.created_at) < from) return false
+      }
+      if (filters.dateTo) {
+        const to = new Date(filters.dateTo + 'T23:59:59.999Z')
+        if (new Date(s.created_at) > to) return false
+      }
+      return true
+    })
+  }, [surebets, filters])
+
+  const bookmakerOptions = useMemo(() => {
+    const set = new Set<string>()
+    accounts.forEach((a) => set.add(a.bookmaker))
+    surebets.forEach((s) => s.legs.forEach((l) => set.add(l.bookmaker)))
+    return Array.from(set).sort()
+  }, [accounts, surebets])
+
+  const sportOptions = useMemo(() => {
+    const set = new Set<string>()
+    surebets.forEach((s) => set.add(s.sport))
+    return Array.from(set).sort()
+  }, [surebets])
+
+  const workerOptions = useMemo(() => {
+    return initialProfiles.map((p) => ({ id: p.id, username: p.username }))
+  }, [initialProfiles])
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
@@ -98,6 +148,12 @@ export default function DashboardApp({
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               <CurrencySelect />
+              <button
+                onClick={() => setShowAccounts(!showAccounts)}
+                className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium"
+              >
+                {showAccounts ? 'Скрыть аккаунты' : 'Аккаунты'}
+              </button>
               {isAdmin && (
                 <button
                   onClick={() => setShowAdmin(!showAdmin)}
@@ -128,20 +184,29 @@ export default function DashboardApp({
         )}
 
         {/* Stats */}
-        <StatsPanel surebets={surebets} />
+        <StatsPanel surebets={filteredSurebets} />
 
         {/* Form */}
-        <SurebetForm onCreated={fetchSurebets} />
+        <SurebetForm accounts={accounts} onCreated={fetchSurebets} />
 
         {/* Journal */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-white">Журнал вилок</h2>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <h2 className="text-xl font-semibold text-white">Журнал вилок</h2>
+            <CsvExport surebets={filteredSurebets} usernames={usernames} filename="surebets" />
+          </div>
+          <FiltersPanel
+            workers={isAdmin ? workerOptions : undefined}
+            bookmakers={bookmakerOptions}
+            sports={sportOptions}
+            onChange={setFilters}
+          />
           {loading ? (
             <p className="text-gray-400">Загрузка...</p>
-          ) : surebets.length === 0 ? (
-            <p className="text-gray-500">Пока нет вилок. Создайте первую выше.</p>
+          ) : filteredSurebets.length === 0 ? (
+            <p className="text-gray-500">Нет вилок по выбранным фильтрам.</p>
           ) : (
-            surebets.map((surebet) => (
+            filteredSurebets.map((surebet) => (
               <SurebetCard
                 key={surebet.id}
                 surebet={surebet}
@@ -152,6 +217,16 @@ export default function DashboardApp({
             ))
           )}
         </div>
+
+        {/* Accounts panel */}
+        {showAccounts && (
+          <div className="pt-6">
+            <AccountsPanel
+              initialAccounts={accounts}
+              onChange={setAccounts}
+            />
+          </div>
+        )}
 
         {/* Admin panel */}
         {isAdmin && showAdmin && (

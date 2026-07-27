@@ -4,9 +4,9 @@ import { useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { calculateExpectedProfitFromStakes, calculateROI, formatMoney } from '@/lib/calc'
 import ComboboxInput from './combobox-input'
+import AccountSelect from './account-select'
+import { Account } from '@/lib/types'
 import { useCurrency } from './currency-context'
-
-const BOOKMAKERS = ['Fezbet', 'N1bet', 'Stonevegas', 'Pinnacle', 'Bookmaker.xyz']
 
 const SPORTS = [
   'Футбол',
@@ -111,12 +111,13 @@ interface LegFormState {
 }
 
 interface SurebetFormProps {
+  accounts: Account[]
   onCreated: () => void
 }
 
 const EMPTY_LEG: LegFormState = { account: '', bookmaker: '', market: '', odds: '', stake: '' }
 
-export default function SurebetForm({ onCreated }: SurebetFormProps) {
+export default function SurebetForm({ accounts, onCreated }: SurebetFormProps) {
   const { currency } = useCurrency()
   const [matchName, setMatchName] = useState('')
   const [sport, setSport] = useState('')
@@ -316,23 +317,22 @@ export default function SurebetForm({ onCreated }: SurebetFormProps) {
                   </button>
                 )}
               </div>
-              <input
-                value={leg.account}
-                onChange={(e) => updateLeg(idx, 'account', e.target.value)}
+              <AccountSelect
+                accounts={accounts}
+                bookmaker={leg.bookmaker}
+                account={leg.account}
+                onSelect={(bm, acc) => {
+                  updateLeg(idx, 'bookmaker', bm)
+                  updateLeg(idx, 'account', acc)
+                }}
                 className={inputClass}
-                placeholder="№ аккаунта"
                 required
               />
-              <ComboboxInput
-                id={`bookmaker-list-${idx}`}
-                label="Букмекер"
-                value={leg.bookmaker}
-                onChange={(val) => updateLeg(idx, 'bookmaker', val)}
-                options={BOOKMAKERS}
-                placeholder="БК"
-                required
-                className={inputClass}
-              />
+              {leg.bookmaker && (
+                <div className="text-xs text-gray-400">
+                  Букмекер: <span className="text-white">{leg.bookmaker}</span>
+                </div>
+              )}
               <ComboboxInput
                 id={`market-list-${idx}`}
                 label="Рынок"

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import DashboardApp from '@/components/dashboard-app'
-import { Profile, SurebetWithLegs } from '@/lib/types'
+import { Account, Profile, SurebetWithLegs } from '@/lib/types'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -32,6 +32,12 @@ export default async function DashboardPage() {
   const { data: surebetsData } = await surebetsQuery
   const initialSurebets = (surebetsData as unknown as SurebetWithLegs[]) || []
 
+  const { data: accountsData } = await supabase
+    .from('accounts')
+    .select('*')
+    .order('created_at', { ascending: false })
+  const initialAccounts = (accountsData as unknown as Account[]) || []
+
   let initialUsernames: Record<string, string> = {}
   let initialProfiles: Profile[] = []
   if (isAdmin) {
@@ -50,6 +56,7 @@ export default async function DashboardPage() {
       initialSurebets={initialSurebets}
       initialUsernames={initialUsernames}
       initialProfiles={initialProfiles}
+      initialAccounts={initialAccounts}
     />
   )
 }

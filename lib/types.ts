@@ -7,6 +7,15 @@ export interface Profile {
   created_at: string
 }
 
+export interface Account {
+  id: string
+  user_id: string
+  bookmaker: string
+  account_number: string
+  is_active: boolean
+  created_at: string
+}
+
 export interface Leg {
   id: string
   surebet_id: string
