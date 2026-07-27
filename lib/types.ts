@@ -12,6 +12,9 @@ export interface Account {
   user_id: string
   bookmaker: string
   account_number: string
+  login?: string | null
+  email?: string | null
+  password?: string | null
   is_active: boolean
   created_at: string
 }

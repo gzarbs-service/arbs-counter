@@ -1,7 +1,7 @@
 'use client'
 
-import { SurebetWithLegs } from '@/lib/types'
-import { calculateSurebetProfit, calculateROI, formatMoney, formatDate } from '@/lib/calc'
+import { Leg, SurebetWithLegs } from '@/lib/types'
+import { calculateSurebetProfit, calculateROI, formatMoney, formatDate, type MoneyCurrency } from '@/lib/calc'
 import { useCurrency } from './currency-context'
 
 interface CsvExportProps {
@@ -18,48 +18,93 @@ function csvCell(value: string | number): string {
   return str
 }
 
+function legResult(leg: Leg, currencyCode: MoneyCurrency) {
+  if (leg.status === 'won') {
+    const payout = Number(leg.stake) * Number(leg.odds)
+    const net = payout - Number(leg.stake)
+    return {
+      payoutText: formatMoney(payout, currencyCode),
+      netText: formatMoney(net, currencyCode),
+    }
+  }
+  if (leg.status === 'refund') {
+    return { payoutText: formatMoney(Number(leg.stake), currencyCode), netText: formatMoney(0, currencyCode) }
+  }
+  if (leg.status === 'lost') {
+    return { payoutText: formatMoney(0, currencyCode), netText: formatMoney(-Number(leg.stake), currencyCode) }
+  }
+  return { payoutText: formatMoney(0, currencyCode), netText: formatMoney(0, currencyCode) }
+}
+
 export default function CsvExport({ surebets, usernames, filename = 'surebets' }: CsvExportProps) {
   const { currency } = useCurrency()
+  const currencyCode = currency as MoneyCurrency
 
   const download = () => {
     const headers = [
-      'ID',
+      'ID вилки',
       'Дата',
       'Матч',
       'Вид спорта',
       'Работник',
-      'Статус',
-      'Банк',
-      'Прибыль',
+      'Статус вилки',
+      'Общий банк',
+      'Прибыль вилки',
       'ROI',
-      'Плечи',
+      '№ плеча',
+      'Букмекер',
+      'Аккаунт',
+      'Рынок',
+      'Коэффициент',
+      'Ставка',
+      'Статус плеча',
+      'Выплата',
+      'Результат плеча',
     ]
 
-    const rows = surebets.map((s) => {
+    const rows: string[][] = []
+
+    surebets.forEach((s) => {
       const profit = calculateSurebetProfit(s)
       const roi = calculateROI(profit, Number(s.bank))
-      const legsStr = s.legs
-        .map(
-          (l) =>
-            `${l.bookmaker} ${l.market} @${l.odds} ${formatMoney(l.stake, currency)} [${l.status}]`
-        )
-        .join('; ')
-
-      return [
+      const worker = usernames?.[s.user_id] || s.user_id
+      const base = [
         s.id,
         formatDate(s.created_at),
         s.match_name,
         s.sport,
-        usernames?.[s.user_id] || s.user_id,
+        worker,
         s.status,
-        formatMoney(Number(s.bank), currency),
-        formatMoney(profit, currency),
+        formatMoney(Number(s.bank), currencyCode),
+        formatMoney(profit, currencyCode),
         `${roi.toFixed(2)}%`,
-        legsStr,
-      ].map(csvCell)
+      ]
+
+      if (s.legs.length === 0) {
+        rows.push([...base, '', '', '', '', '', '', '', ''])
+        return
+      }
+
+      s.legs.forEach((leg, idx) => {
+        const { payoutText, netText } = legResult(leg, currencyCode)
+        rows.push([
+          ...base,
+          String(idx + 1),
+          leg.bookmaker,
+          leg.account,
+          leg.market,
+          String(leg.odds),
+          formatMoney(Number(leg.stake), currencyCode),
+          leg.status,
+          payoutText,
+          netText,
+        ])
+      })
     })
 
-    const csv = [headers.map(csvCell).join(','), ...rows.map((r) => r.join(','))].join('\n')
+    const csv = [headers.map(csvCell).join(','), ...rows.map((r) => r.map(csvCell).join(','))].join(
+      '\n'
+    )
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

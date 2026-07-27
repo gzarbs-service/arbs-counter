@@ -14,6 +14,9 @@ create table if not exists public.accounts (
   user_id uuid references auth.users on delete cascade not null,
   bookmaker text not null,
   account_number text not null,
+  login text,
+  email text,
+  password text,
   is_active boolean not null default true,
   created_at timestamp with time zone default now()
 );

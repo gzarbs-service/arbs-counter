@@ -16,6 +16,9 @@ export default function AccountsPanel({ initialAccounts, onChange }: AccountsPan
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts)
   const [bookmaker, setBookmaker] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
+  const [login, setLogin] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
@@ -43,6 +46,9 @@ export default function AccountsPanel({ initialAccounts, onChange }: AccountsPan
       user_id: user.id,
       bookmaker: bookmaker.trim(),
       account_number: accountNumber.trim(),
+      login: login.trim() || null,
+      email: email.trim() || null,
+      password: password.trim() || null,
       is_active: true,
     })
 
@@ -54,6 +60,9 @@ export default function AccountsPanel({ initialAccounts, onChange }: AccountsPan
 
     setBookmaker('')
     setAccountNumber('')
+    setLogin('')
+    setEmail('')
+    setPassword('')
     await refreshAccounts()
     setLoading(false)
   }
@@ -74,7 +83,7 @@ export default function AccountsPanel({ initialAccounts, onChange }: AccountsPan
     <div className="glass rounded-2xl p-6 space-y-6">
       <h2 className="text-xl font-semibold text-cyan-400">Аккаунты в игре</h2>
 
-      <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+      <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
         <ComboboxInput
           id="account-bookmaker-list"
           label="Букмекер"
@@ -95,6 +104,35 @@ export default function AccountsPanel({ initialAccounts, onChange }: AccountsPan
             required
           />
         </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Логин</label>
+          <input
+            value={login}
+            onChange={(e) => setLogin(e.target.value)}
+            className={inputClass}
+            placeholder="login123"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputClass}
+            placeholder="email@example.com"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Пароль</label>
+          <input
+            type="text"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={inputClass}
+            placeholder="password"
+          />
+        </div>
         <button
           type="submit"
           disabled={loading}
@@ -109,21 +147,46 @@ export default function AccountsPanel({ initialAccounts, onChange }: AccountsPan
           <p className="text-gray-500 text-sm">Пока нет аккаунтов.</p>
         ) : (
           accounts.map((acc) => (
-            <div
+            <details
               key={acc.id}
-              className="flex items-center justify-between glass rounded-xl p-3 text-sm"
+              className="group glass rounded-xl p-3 text-sm"
             >
-              <span className="text-white">
-                {acc.bookmaker} <span className="text-gray-400">{acc.account_number}</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => handleDelete(acc.id)}
-                className="text-xs text-red-400 hover:text-red-300 transition"
-              >
-                Удалить
-              </button>
-            </div>
+              <summary className="flex items-center justify-between cursor-pointer list-none">
+                <span className="text-white">
+                  {acc.bookmaker} <span className="text-gray-400">{acc.account_number}</span>
+                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500 group-open:hidden">Подробнее</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleDelete(acc.id)
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300 transition"
+                  >
+                    Удалить
+                  </button>
+                </div>
+              </summary>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-400">
+                {acc.login && (
+                  <div>
+                    Логин: <span className="text-white">{acc.login}</span>
+                  </div>
+                )}
+                {acc.email && (
+                  <div>
+                    Email: <span className="text-white">{acc.email}</span>
+                  </div>
+                )}
+                {acc.password && (
+                  <div>
+                    Пароль: <span className="text-white">{acc.password}</span>
+                  </div>
+                )}
+              </div>
+            </details>
           ))
         )}
       </div>
