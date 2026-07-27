@@ -9,6 +9,7 @@ import StatsPanel from './stats-panel'
 import SurebetForm from './surebet-form'
 import SurebetCard from './surebet-card'
 import AccountsPanel from './accounts-panel'
+import AccountStatsDashboard from './account-stats-dashboard'
 import AdminPanel from './admin-panel'
 import FiltersPanel, { Filters } from './filters-panel'
 import CsvExport from './csv-export'
@@ -36,6 +37,7 @@ export default function DashboardApp({
   const [error, setError] = useState('')
   const [showAdmin, setShowAdmin] = useState(false)
   const [showAccounts, setShowAccounts] = useState(false)
+  const [showAccountStats, setShowAccountStats] = useState(false)
   const [filters, setFilters] = useState<Filters>({
     worker: '',
     bookmaker: '',
@@ -154,6 +156,12 @@ export default function DashboardApp({
               >
                 {showAccounts ? 'Скрыть аккаунты' : 'Аккаунты'}
               </button>
+              <button
+                onClick={() => setShowAccountStats(!showAccountStats)}
+                className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium"
+              >
+                {showAccountStats ? 'Скрыть стату аккаунтов' : 'Статистика по аккаунтам'}
+              </button>
               {isAdmin && (
                 <button
                   onClick={() => setShowAdmin(!showAdmin)}
@@ -225,6 +233,13 @@ export default function DashboardApp({
               initialAccounts={accounts}
               onChange={setAccounts}
             />
+          </div>
+        )}
+
+        {/* Account stats dashboard */}
+        {showAccountStats && (
+          <div className="pt-6">
+            <AccountStatsDashboard accounts={accounts} surebets={filteredSurebets} />
           </div>
         )}
 
