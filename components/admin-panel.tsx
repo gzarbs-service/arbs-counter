@@ -26,12 +26,20 @@ export default function AdminPanel({ initialUsers = [] }: AdminPanelProps) {
 
   const toggleRole = async (user: Profile) => {
     const newRole = user.role === 'admin' ? 'worker' : 'admin'
-    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id)
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ role: newRole })
+      .eq('id', user.id)
+      .select()
     if (error) {
       alert('Ошибка обновления роли: ' + error.message)
       return
     }
-    fetchUsers()
+    if (!data || data.length === 0) {
+      alert('Не удалось обновить роль. Проверь политику RLS в Supabase: админ должен иметь право на обновление всех профилей.')
+      return
+    }
+    setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, role: newRole } : u)))
   }
 
   return (
