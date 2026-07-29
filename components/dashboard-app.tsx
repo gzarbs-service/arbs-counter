@@ -153,7 +153,7 @@ export default function DashboardApp({
         <StatsPanel surebets={filteredSurebets} />
 
         {/* Form */}
-        <SurebetForm accounts={accounts} onCreated={fetchSurebets} />
+        <SurebetForm accounts={accounts} isAdmin={isAdmin} onCreated={fetchSurebets} />
 
         {/* Journal (compact) */}
         <div className="space-y-4">

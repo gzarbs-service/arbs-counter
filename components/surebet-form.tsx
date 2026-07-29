@@ -20,12 +20,32 @@ interface LegFormState {
 
 interface SurebetFormProps {
   accounts: Account[]
+  isAdmin?: boolean
   onCreated: () => void
 }
 
 const EMPTY_LEG: LegFormState = { account: '', bookmaker: '', market: '', odds: '', stake: '' }
 
-export default function SurebetForm({ accounts, onCreated }: SurebetFormProps) {
+const TEAM_NAMES = [
+  'Динамо', 'Шахтёр', 'Зенит', 'Спартак', 'Локомотив', 'Крылья Советов', 'Рубин',
+  'Факел', 'Пари НН', 'Оренбург', 'Ростов', 'Сочи', 'Торпедо', 'Ахмат',
+  'Арсенал', 'Челси', 'Ливерпуль', 'Ман Сити', 'Ювентус', 'Милан', 'Интер', 'Рома',
+  'Барселона', 'Реал', 'Атлетико', 'Валенсия', 'Севилья', 'Бавария', 'Боруссия',
+]
+
+function getRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+function randomOdds(): string {
+  return (1.2 + Math.random() * 2.3).toFixed(2)
+}
+
+function randomStake(): string {
+  return (50 + Math.random() * 150).toFixed(2)
+}
+
+export default function SurebetForm({ accounts, isAdmin, onCreated }: SurebetFormProps) {
   const { currency } = useCurrency()
   const [matchName, setMatchName] = useState('')
   const [sport, setSport] = useState('')
@@ -84,6 +104,40 @@ export default function SurebetForm({ accounts, onCreated }: SurebetFormProps) {
     setComment('')
     setLegs([{ ...EMPTY_LEG }, { ...EMPTY_LEG }])
   }, [])
+
+  const fillRandomTestData = useCallback(() => {
+    if (!isAdmin) return
+    const teamA = getRandom(TEAM_NAMES)
+    let teamB = getRandom(TEAM_NAMES)
+    while (teamB === teamA) {
+      teamB = getRandom(TEAM_NAMES)
+    }
+    setMatchName(`${teamA} - ${teamB}`)
+    setSport(getRandom(SPORTS))
+    setComment('Тестовая вилка')
+
+    const legCount = 2 + Math.floor(Math.random() * 2)
+    const newLegs: LegFormState[] = Array.from({ length: legCount }, () => {
+      if (accounts.length > 0) {
+        const acc = getRandom(accounts)
+        return {
+          bookmaker: acc.bookmaker,
+          account: acc.account_number,
+          market: getRandom(MARKETS),
+          odds: randomOdds(),
+          stake: randomStake(),
+        }
+      }
+      return {
+        bookmaker: `Bookie ${Math.floor(1 + Math.random() * 99)}`,
+        account: `acc${Math.floor(100 + Math.random() * 900)}`,
+        market: getRandom(MARKETS),
+        odds: randomOdds(),
+        stake: randomStake(),
+      }
+    })
+    setLegs(newLegs)
+  }, [accounts, isAdmin])
 
   const canSubmit = useMemo(() => {
     return (
@@ -165,7 +219,18 @@ export default function SurebetForm({ accounts, onCreated }: SurebetFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-6 surebet-glow">
-      <h2 className="text-xl font-semibold text-cyan-400">Создать вилку</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-cyan-400">Создать вилку</h2>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={fillRandomTestData}
+            className="px-3 py-1.5 rounded-lg glass text-xs font-medium text-purple-400 hover:border-purple-400/40 transition"
+          >
+            🎲 Тестовые данные
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
