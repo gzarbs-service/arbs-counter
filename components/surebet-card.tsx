@@ -83,6 +83,8 @@ export default function SurebetCard({ surebet, isAdmin, username, onUpdate }: Su
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'sync',
+          surebetId: surebet.id,
           matchDate: formatDate(surebet.created_at),
           matchName: surebet.match_name,
           sport: surebet.sport,
@@ -118,6 +120,14 @@ export default function SurebetCard({ surebet, isAdmin, username, onUpdate }: Su
       alert('Ошибка удаления: ' + error.message)
       return
     }
+
+    fetch('/api/sheets-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', surebetId: surebet.id }),
+    }).catch(() => {
+      // Silently ignore sync errors so it never blocks the main workflow.
+    })
     onUpdate()
   }
 
