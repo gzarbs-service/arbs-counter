@@ -52,6 +52,7 @@ export default function SurebetCard({ surebet, isAdmin, username, onUpdate }: Su
   const potentialROIMin = calculateROI(potentialRange.min, Number(surebet.bank))
   const potentialROIMax = calculateROI(potentialRange.max, Number(surebet.bank))
   const isSingleOutcome = potentialRange.min === potentialRange.max
+  const isMultiLeg = (surebet.legs || []).length > 2
 
   const setStatus = (legId: string, status: Leg['status']) => {
     setDraftStatuses((prev) => ({ ...prev, [legId]: status }))
@@ -101,7 +102,15 @@ export default function SurebetCard({ surebet, isAdmin, username, onUpdate }: Su
             {hasChanges && <span className="mr-1 opacity-70">preview</span>}
             {formatMoney(displayedProfit, currency)} ({displayedROI.toFixed(2)}%)
           </span>
-          {isPending && (
+          {isPending && isMultiLeg && (
+            <span
+              className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-300 border border-yellow-500/30"
+              title="У тройных и более вилок плечи могут быть связаны через исходы матча (форы, DNB, тоталы), поэтому точный расчёт потенциальной прибыли невозможен без учёта этой связи."
+            >
+              Потенциально: неточно (3+ плеча)
+            </span>
+          )}
+          {isPending && !isMultiLeg && (
             <span className="px-3 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
               Потенциально: {isSingleOutcome
                 ? `${formatMoney(potentialRange.min, currency)} (${potentialROIMin.toFixed(2)}%)`

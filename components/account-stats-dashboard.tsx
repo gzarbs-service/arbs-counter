@@ -22,6 +22,7 @@ interface AccountStat {
   pending: number
   potentialProfitMin: number
   potentialProfitMax: number
+  hasMultiLegPending: boolean
 }
 
 export default function AccountStatsDashboard({ accounts, surebets }: AccountStatsDashboardProps) {
@@ -52,6 +53,7 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
         (sum, s) => sum + calculatePotentialProfitRange(s).max,
         0
       )
+      const hasMultiLegPending = surebetsWithPendingForAccount.some((s) => (s.legs || []).length > 2)
 
       return {
         account: acc,
@@ -65,6 +67,7 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
         pending: legs.filter((l) => l.status === 'pending').length,
         potentialProfitMin,
         potentialProfitMax,
+        hasMultiLegPending,
       }
     })
   }, [accounts, surebets])
@@ -110,11 +113,20 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
                 </td>
                 <td className="py-3">{stat.roi.toFixed(2)}%</td>
                 <td className="py-3 text-cyan-300">
-                  {stat.pending === 0
-                    ? '—'
-                    : stat.potentialProfitMin === stat.potentialProfitMax
-                    ? formatMoney(stat.potentialProfitMin, currency as 'EUR' | 'USD')
-                    : `${formatMoney(stat.potentialProfitMin, currency as 'EUR' | 'USD')} / ${formatMoney(stat.potentialProfitMax, currency as 'EUR' | 'USD')}`}
+                  {stat.pending === 0 ? (
+                    '—'
+                  ) : stat.hasMultiLegPending ? (
+                    <span
+                      className="text-yellow-300"
+                      title="Среди вилок есть тройные+, где плечи могут быть связаны между собой через исходы матча — точный расчёт невозможен."
+                    >
+                      неточно (3+ плеча)
+                    </span>
+                  ) : stat.potentialProfitMin === stat.potentialProfitMax ? (
+                    formatMoney(stat.potentialProfitMin, currency as 'EUR' | 'USD')
+                  ) : (
+                    `${formatMoney(stat.potentialProfitMin, currency as 'EUR' | 'USD')} / ${formatMoney(stat.potentialProfitMax, currency as 'EUR' | 'USD')}`
+                  )}
                 </td>
                 <td className="py-3 text-green-400">{stat.won}</td>
                 <td className="py-3 text-red-400">{stat.lost}</td>
