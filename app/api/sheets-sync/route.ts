@@ -10,9 +10,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
+    // Apps Script's /exec endpoint redirects internally; sending Content-Type:
+    // application/json breaks that redirect (405/"Page Not Found"). Sending as
+    // text/plain avoids this while still letting the script JSON.parse the body.
     const response = await fetch(webhookUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(body),
     })
 
