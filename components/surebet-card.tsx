@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Leg, SurebetWithLegs } from '@/lib/types'
-import { calculateSurebetProfit, calculateROI, calculateLegProfit, calculatePotentialProfitRange, hasPendingLegs, formatMoney, formatDate } from '@/lib/calc'
+import { calculateSurebetProfit, calculateROI, calculateLegProfit, calculateLegPayout, calculatePotentialProfitRange, hasPendingLegs, formatMoney, formatDate } from '@/lib/calc'
 import { useCurrency } from './currency-context'
 
 interface SurebetCardProps {
@@ -69,6 +69,44 @@ export default function SurebetCard({ surebet, isAdmin, username, onUpdate }: Su
         }
       }
     }
+
+    const updatedLegs = (surebet.legs || []).map((leg) => ({
+      ...leg,
+      status: draftStatuses[leg.id] ?? leg.status,
+    }))
+    const allSettled = updatedLegs.length > 0 && updatedLegs.every((leg) => leg.status !== 'pending')
+
+    if (allSettled) {
+      const finalProfit = updatedLegs.reduce((sum, leg) => sum + calculateLegProfit(leg), 0)
+      const finalROI = calculateROI(finalProfit, Number(surebet.bank))
+      fetch('/api/sheets-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchDate: formatDate(surebet.created_at),
+          matchName: surebet.match_name,
+          sport: surebet.sport,
+          worker: username || surebet.user_id,
+          bank: surebet.bank,
+          profit: finalProfit,
+          roi: finalROI,
+          comment: surebet.comment || '',
+          legs: updatedLegs.map((leg) => ({
+            bookmaker: leg.bookmaker,
+            account: leg.account,
+            market: leg.market,
+            odds: leg.odds,
+            stake: leg.stake,
+            status: leg.status,
+            payout: calculateLegPayout(leg),
+            result: calculateLegProfit(leg),
+          })),
+        }),
+      }).catch(() => {
+        // Silently ignore sync errors so it never blocks the main workflow.
+      })
+    }
+
     setDraftStatuses({})
     onUpdate()
   }

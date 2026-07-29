@@ -37,6 +37,16 @@ export function calculateExpectedProfitFromStakes(stakes: number[], odds: number
   return Number((payout - total).toFixed(2))
 }
 
+export function calculateLegPayout(leg: Leg): number {
+  if (leg.status === 'won') {
+    return Number((Number(leg.stake) * Number(leg.odds)).toFixed(2))
+  }
+  if (leg.status === 'refund') {
+    return Number(Number(leg.stake).toFixed(2))
+  }
+  return 0
+}
+
 export function hasPendingLegs(surebet: SurebetWithLegs): boolean {
   return (surebet.legs || []).some((leg) => leg.status === 'pending')
 }
