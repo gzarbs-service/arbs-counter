@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Account, Profile, SurebetWithLegs } from '@/lib/types'
@@ -49,6 +49,28 @@ export default function DashboardApp({
   const [usernames, setUsernames] = useState<Record<string, string>>(initialUsernames)
   const router = useRouter()
   const supabase = createClient()
+
+  const accountsRef = useRef<HTMLDivElement>(null)
+  const accountStatsRef = useRef<HTMLDivElement>(null)
+  const adminRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (showAccounts) {
+      accountsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [showAccounts])
+
+  useEffect(() => {
+    if (showAccountStats) {
+      accountStatsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [showAccountStats])
+
+  useEffect(() => {
+    if (showAdmin) {
+      adminRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [showAdmin])
 
   const isAdmin = profile?.role === 'admin'
 
@@ -228,7 +250,7 @@ export default function DashboardApp({
 
         {/* Accounts panel */}
         {showAccounts && (
-          <div className="pt-6">
+          <div className="pt-6" ref={accountsRef}>
             <AccountsPanel
               initialAccounts={accounts}
               onChange={setAccounts}
@@ -238,14 +260,14 @@ export default function DashboardApp({
 
         {/* Account stats dashboard */}
         {showAccountStats && (
-          <div className="pt-6">
+          <div className="pt-6" ref={accountStatsRef}>
             <AccountStatsDashboard accounts={accounts} surebets={filteredSurebets} />
           </div>
         )}
 
         {/* Admin panel */}
         {isAdmin && showAdmin && (
-          <div className="pt-6">
+          <div className="pt-6" ref={adminRef}>
             <AdminPanel initialUsers={initialProfiles} />
           </div>
         )}
