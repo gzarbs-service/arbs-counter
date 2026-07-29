@@ -117,6 +117,7 @@ export default function JournalPage({
                   surebet={surebet}
                   isAdmin={isAdmin}
                   username={usernames[surebet.user_id]}
+                  accounts={accounts}
                   onUpdate={fetchSurebets}
                 />
               ))

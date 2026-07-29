@@ -177,6 +177,7 @@ export default function DashboardApp({
                 surebet={surebet}
                 isAdmin={isAdmin}
                 username={usernames[surebet.user_id]}
+                accounts={accounts}
                 onUpdate={fetchSurebets}
               />
             ))
