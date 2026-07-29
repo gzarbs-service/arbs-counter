@@ -72,6 +72,18 @@ export default function DashboardApp({
     }
   }, [showAdmin])
 
+  const [showBackToTop, setShowBackToTop] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setShowBackToTop(window.scrollY > 400)
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const isAdmin = profile?.role === 'admin'
 
   const fetchSurebets = useCallback(async () => {
@@ -272,6 +284,16 @@ export default function DashboardApp({
           </div>
         )}
       </div>
+
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          aria-label="Наверх"
+          className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full glass flex items-center justify-center text-cyan-400 hover:border-cyan-400/40 transition shadow-lg"
+        >
+          ↑
+        </button>
+      )}
     </div>
   </CurrencyProvider>
   )
