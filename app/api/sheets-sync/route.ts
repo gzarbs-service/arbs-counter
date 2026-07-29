@@ -10,17 +10,26 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    // Apps Script's /exec endpoint redirects internally; sending Content-Type:
-    // application/json breaks that redirect (405/"Page Not Found"). Sending as
-    // text/plain avoids this while still letting the script JSON.parse the body.
-    const response = await fetch(webhookUrl, {
+    // Apps Script's /exec endpoint responds to POST with a 302 redirect to an
+    // internal googleusercontent.com URL. That redirect target must be
+    // requested with GET (not POST) or it returns a generic Drive
+    // "Page Not Found" error. We handle the redirect manually to guarantee this.
+    const firstResponse = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(body),
+      redirect: 'manual',
     })
 
-    if (!response.ok) {
-      const text = await response.text()
+    let finalResponse = firstResponse
+    const location = firstResponse.headers.get('location')
+
+    if (firstResponse.status >= 300 && firstResponse.status < 400 && location) {
+      finalResponse = await fetch(location, { method: 'GET', redirect: 'follow' })
+    }
+
+    if (!finalResponse.ok) {
+      const text = await finalResponse.text()
       return NextResponse.json({ error: 'Google Sheets webhook failed: ' + text }, { status: 502 })
     }
 
