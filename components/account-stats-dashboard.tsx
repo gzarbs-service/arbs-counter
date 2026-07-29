@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { Account, SurebetWithLegs } from '@/lib/types'
-import { calculateLegProfit, calculatePotentialProfit, formatMoney, calculateROI } from '@/lib/calc'
+import { calculateLegProfit, calculatePotentialProfitRange, formatMoney, calculateROI } from '@/lib/calc'
 import { useCurrency } from './currency-context'
 
 interface AccountStatsDashboardProps {
@@ -20,7 +20,8 @@ interface AccountStat {
   lost: number
   refund: number
   pending: number
-  potentialProfit: number
+  potentialProfitMin: number
+  potentialProfitMax: number
 }
 
 export default function AccountStatsDashboard({ accounts, surebets }: AccountStatsDashboardProps) {
@@ -43,8 +44,12 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
           (l) => l.account === acc.account_number && l.bookmaker === acc.bookmaker && l.status === 'pending'
         )
       )
-      const potentialProfit = surebetsWithPendingForAccount.reduce(
-        (sum, s) => sum + calculatePotentialProfit(s),
+      const potentialProfitMin = surebetsWithPendingForAccount.reduce(
+        (sum, s) => sum + calculatePotentialProfitRange(s).min,
+        0
+      )
+      const potentialProfitMax = surebetsWithPendingForAccount.reduce(
+        (sum, s) => sum + calculatePotentialProfitRange(s).max,
         0
       )
 
@@ -58,7 +63,8 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
         lost: legs.filter((l) => l.status === 'lost').length,
         refund: legs.filter((l) => l.status === 'refund').length,
         pending: legs.filter((l) => l.status === 'pending').length,
-        potentialProfit,
+        potentialProfitMin,
+        potentialProfitMax,
       }
     })
   }, [accounts, surebets])
@@ -104,7 +110,11 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
                 </td>
                 <td className="py-3">{stat.roi.toFixed(2)}%</td>
                 <td className="py-3 text-cyan-300">
-                  {stat.potentialProfit !== 0 ? formatMoney(stat.potentialProfit, currency as 'EUR' | 'USD') : '—'}
+                  {stat.pending === 0
+                    ? '—'
+                    : stat.potentialProfitMin === stat.potentialProfitMax
+                    ? formatMoney(stat.potentialProfitMin, currency as 'EUR' | 'USD')
+                    : `${formatMoney(stat.potentialProfitMin, currency as 'EUR' | 'USD')} / ${formatMoney(stat.potentialProfitMax, currency as 'EUR' | 'USD')}`}
                 </td>
                 <td className="py-3 text-green-400">{stat.won}</td>
                 <td className="py-3 text-red-400">{stat.lost}</td>

@@ -41,12 +41,25 @@ export function hasPendingLegs(surebet: SurebetWithLegs): boolean {
   return (surebet.legs || []).some((leg) => leg.status === 'pending')
 }
 
-export function calculatePotentialProfit(surebet: SurebetWithLegs): number {
+export function calculatePotentialProfitRange(surebet: SurebetWithLegs): { min: number; max: number } {
   const legs = surebet.legs || []
-  if (legs.length === 0) return 0
+  if (legs.length === 0) return { min: 0, max: 0 }
   const stakes = legs.map((l) => Number(l.stake))
   const odds = legs.map((l) => Number(l.odds))
-  return calculateExpectedProfitFromStakes(stakes, odds)
+  const totalStake = stakes.reduce((acc, s) => acc + s, 0)
+  if (totalStake === 0) return { min: 0, max: 0 }
+  // Each outcome assumes exactly one leg wins and the rest lose.
+  // Since manually entered stakes may not perfectly match the odds split,
+  // the actual profit can vary depending on which leg wins.
+  const outcomes = stakes.map((stake, i) => stake * odds[i] - totalStake)
+  return {
+    min: Number(Math.min(...outcomes).toFixed(2)),
+    max: Number(Math.max(...outcomes).toFixed(2)),
+  }
+}
+
+export function calculatePotentialProfit(surebet: SurebetWithLegs): number {
+  return calculatePotentialProfitRange(surebet).min
 }
 
 export function calculateROI(profit: number, bank: number): number {

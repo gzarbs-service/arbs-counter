@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Leg, SurebetWithLegs } from '@/lib/types'
-import { calculateSurebetProfit, calculateROI, calculateLegProfit, calculatePotentialProfit, hasPendingLegs, formatMoney, formatDate } from '@/lib/calc'
+import { calculateSurebetProfit, calculateROI, calculateLegProfit, calculatePotentialProfitRange, hasPendingLegs, formatMoney, formatDate } from '@/lib/calc'
 import { useCurrency } from './currency-context'
 
 interface SurebetCardProps {
@@ -48,8 +48,10 @@ export default function SurebetCard({ surebet, isAdmin, username, onUpdate }: Su
   const displayedROI = calculateROI(displayedProfit, Number(surebet.bank))
 
   const isPending = !hasChanges && hasPendingLegs(surebet)
-  const potentialProfit = useMemo(() => calculatePotentialProfit(surebet), [surebet])
-  const potentialROI = calculateROI(potentialProfit, Number(surebet.bank))
+  const potentialRange = useMemo(() => calculatePotentialProfitRange(surebet), [surebet])
+  const potentialROIMin = calculateROI(potentialRange.min, Number(surebet.bank))
+  const potentialROIMax = calculateROI(potentialRange.max, Number(surebet.bank))
+  const isSingleOutcome = potentialRange.min === potentialRange.max
 
   const setStatus = (legId: string, status: Leg['status']) => {
     setDraftStatuses((prev) => ({ ...prev, [legId]: status }))
@@ -101,7 +103,9 @@ export default function SurebetCard({ surebet, isAdmin, username, onUpdate }: Su
           </span>
           {isPending && (
             <span className="px-3 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-              Потенциально: {formatMoney(potentialProfit, currency)} ({potentialROI.toFixed(2)}%)
+              Потенциально: {isSingleOutcome
+                ? `${formatMoney(potentialRange.min, currency)} (${potentialROIMin.toFixed(2)}%)`
+                : `от ${formatMoney(potentialRange.min, currency)} до ${formatMoney(potentialRange.max, currency)} (${potentialROIMin.toFixed(2)}% / ${potentialROIMax.toFixed(2)}%)`}
             </span>
           )}
           <button
