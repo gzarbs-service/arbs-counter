@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Leg, SurebetWithLegs } from '@/lib/types'
-import { calculateSurebetProfit, calculateROI, calculateLegProfit, formatMoney, formatDate } from '@/lib/calc'
+import { calculateSurebetProfit, calculateROI, calculateLegProfit, calculatePotentialProfit, hasPendingLegs, formatMoney, formatDate } from '@/lib/calc'
 import { useCurrency } from './currency-context'
 
 interface SurebetCardProps {
@@ -46,6 +46,10 @@ export default function SurebetCard({ surebet, isAdmin, username, onUpdate }: Su
 
   const displayedProfit = hasChanges ? previewProfit : calculateSurebetProfit(surebet)
   const displayedROI = calculateROI(displayedProfit, Number(surebet.bank))
+
+  const isPending = !hasChanges && hasPendingLegs(surebet)
+  const potentialProfit = useMemo(() => calculatePotentialProfit(surebet), [surebet])
+  const potentialROI = calculateROI(potentialProfit, Number(surebet.bank))
 
   const setStatus = (legId: string, status: Leg['status']) => {
     setDraftStatuses((prev) => ({ ...prev, [legId]: status }))
@@ -95,6 +99,11 @@ export default function SurebetCard({ surebet, isAdmin, username, onUpdate }: Su
             {hasChanges && <span className="mr-1 opacity-70">preview</span>}
             {formatMoney(displayedProfit, currency)} ({displayedROI.toFixed(2)}%)
           </span>
+          {isPending && (
+            <span className="px-3 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+              Потенциально: {formatMoney(potentialProfit, currency)} ({potentialROI.toFixed(2)}%)
+            </span>
+          )}
           <button
             onClick={deleteSurebet}
             className="text-xs text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg px-3 py-1 transition hover:bg-red-500/10"

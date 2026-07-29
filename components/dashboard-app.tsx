@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Account, Profile, SurebetWithLegs } from '@/lib/types'
+import { useSurebetJournal } from '@/lib/use-surebet-journal'
 import { CurrencyProvider } from './currency-context'
 import StatsPanel from './stats-panel'
 import SurebetForm from './surebet-form'
@@ -11,8 +13,6 @@ import SurebetCard from './surebet-card'
 import AccountsPanel from './accounts-panel'
 import AccountStatsDashboard from './account-stats-dashboard'
 import AdminPanel from './admin-panel'
-import FiltersPanel, { Filters } from './filters-panel'
-import CsvExport from './csv-export'
 import CurrencySelect from './currency-select'
 
 interface DashboardAppProps {
@@ -31,24 +31,28 @@ export default function DashboardApp({
   initialAccounts = [],
 }: DashboardAppProps) {
   const [profile] = useState<Profile | null>(initialProfile)
-  const [surebets, setSurebets] = useState<SurebetWithLegs[]>(initialSurebets)
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const [showAdmin, setShowAdmin] = useState(false)
   const [showAccounts, setShowAccounts] = useState(false)
   const [showAccountStats, setShowAccountStats] = useState(false)
-  const [filters, setFilters] = useState<Filters>({
-    worker: '',
-    bookmaker: '',
-    sport: '',
-    status: '',
-    dateFrom: '',
-    dateTo: '',
-  })
-  const [usernames, setUsernames] = useState<Record<string, string>>(initialUsernames)
   const router = useRouter()
   const supabase = createClient()
+
+  const isAdmin = profile?.role === 'admin'
+
+  const {
+    usernames,
+    loading,
+    error,
+    fetchSurebets,
+    filteredSurebets,
+  } = useSurebetJournal({
+    initialSurebets,
+    initialUsernames,
+    initialProfiles,
+    accounts,
+    isAdmin,
+  })
 
   const accountsRef = useRef<HTMLDivElement>(null)
   const accountStatsRef = useRef<HTMLDivElement>(null)
@@ -83,86 +87,6 @@ export default function DashboardApp({
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-
-  const isAdmin = profile?.role === 'admin'
-
-  const fetchSurebets = useCallback(async () => {
-    setLoading(true)
-    setError('')
-
-    let userId: string | null = null
-    if (!isAdmin) {
-      const { data: { user } } = await supabase.auth.getUser()
-      userId = user?.id || null
-    }
-
-    let builder = supabase
-      .from('surebets')
-      .select('*, legs(*)')
-      .order('created_at', { ascending: false })
-
-    if (!isAdmin && userId) {
-      builder = builder.eq('user_id', userId)
-    }
-
-    const { data, error: sbError } = await builder
-    if (sbError) {
-      setError('Ошибка загрузки вилок: ' + sbError.message)
-      setLoading(false)
-      return
-    }
-
-    const surebetsData = (data as unknown as SurebetWithLegs[]) || []
-    setSurebets(surebetsData)
-
-    if (isAdmin) {
-      const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('id, username')
-      if (!profilesError && profilesData) {
-        const map: Record<string, string> = {}
-        profilesData.forEach((p: { id: string; username: string }) => {
-          map[p.id] = p.username
-        })
-        setUsernames(map)
-      }
-    }
-
-    setLoading(false)
-  }, [isAdmin, supabase])
-
-  const filteredSurebets = useMemo(() => {
-    return surebets.filter((s) => {
-      if (filters.worker && s.user_id !== filters.worker) return false
-      if (filters.sport && s.sport !== filters.sport) return false
-      if (filters.status && s.status !== filters.status) return false
-      if (filters.bookmaker && !s.legs.some((l) => l.bookmaker === filters.bookmaker)) return false
-      if (filters.dateFrom) {
-        const from = new Date(filters.dateFrom)
-        if (new Date(s.created_at) < from) return false
-      }
-      if (filters.dateTo) {
-        const to = new Date(filters.dateTo + 'T23:59:59.999Z')
-        if (new Date(s.created_at) > to) return false
-      }
-      return true
-    })
-  }, [surebets, filters])
-
-  const bookmakerOptions = useMemo(() => {
-    const set = new Set<string>()
-    accounts.forEach((a) => set.add(a.bookmaker))
-    surebets.forEach((s) => s.legs.forEach((l) => set.add(l.bookmaker)))
-    return Array.from(set).sort()
-  }, [accounts, surebets])
-
-  const sportOptions = useMemo(() => {
-    const set = new Set<string>()
-    surebets.forEach((s) => set.add(s.sport))
-    return Array.from(set).sort()
-  }, [surebets])
-
-  const workerOptions = useMemo(() => {
-    return initialProfiles.map((p) => ({ id: p.id, username: p.username }))
-  }, [initialProfiles])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -231,24 +155,23 @@ export default function DashboardApp({
         {/* Form */}
         <SurebetForm accounts={accounts} onCreated={fetchSurebets} />
 
-        {/* Journal */}
+        {/* Journal (compact) */}
         <div className="space-y-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <h2 className="text-xl font-semibold text-white">Журнал вилок</h2>
-            <CsvExport surebets={filteredSurebets} usernames={usernames} filename="surebets" />
+            <Link
+              href="/dashboard/journal"
+              className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium text-cyan-300"
+            >
+              Показать все →
+            </Link>
           </div>
-          <FiltersPanel
-            workers={isAdmin ? workerOptions : undefined}
-            bookmakers={bookmakerOptions}
-            sports={sportOptions}
-            onChange={setFilters}
-          />
           {loading ? (
             <p className="text-gray-400">Загрузка...</p>
           ) : filteredSurebets.length === 0 ? (
-            <p className="text-gray-500">Нет вилок по выбранным фильтрам.</p>
+            <p className="text-gray-500">Пока нет вилок.</p>
           ) : (
-            filteredSurebets.map((surebet) => (
+            filteredSurebets.slice(0, 5).map((surebet) => (
               <SurebetCard
                 key={surebet.id}
                 surebet={surebet}

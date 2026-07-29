@@ -37,6 +37,18 @@ export function calculateExpectedProfitFromStakes(stakes: number[], odds: number
   return Number((payout - total).toFixed(2))
 }
 
+export function hasPendingLegs(surebet: SurebetWithLegs): boolean {
+  return (surebet.legs || []).some((leg) => leg.status === 'pending')
+}
+
+export function calculatePotentialProfit(surebet: SurebetWithLegs): number {
+  const legs = surebet.legs || []
+  if (legs.length === 0) return 0
+  const stakes = legs.map((l) => Number(l.stake))
+  const odds = legs.map((l) => Number(l.odds))
+  return calculateExpectedProfitFromStakes(stakes, odds)
+}
+
 export function calculateROI(profit: number, bank: number): number {
   if (!bank) return 0
   return Number(((profit / bank) * 100).toFixed(2))

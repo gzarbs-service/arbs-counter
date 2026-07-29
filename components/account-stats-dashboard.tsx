@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { Account, SurebetWithLegs } from '@/lib/types'
-import { calculateLegProfit, formatMoney, calculateROI } from '@/lib/calc'
+import { calculateLegProfit, calculatePotentialProfit, formatMoney, calculateROI } from '@/lib/calc'
 import { useCurrency } from './currency-context'
 
 interface AccountStatsDashboardProps {
@@ -20,6 +20,7 @@ interface AccountStat {
   lost: number
   refund: number
   pending: number
+  potentialProfit: number
 }
 
 export default function AccountStatsDashboard({ accounts, surebets }: AccountStatsDashboardProps) {
@@ -37,6 +38,16 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
       const profit = legs.reduce((sum, l) => sum + calculateLegProfit(l), 0)
       const roi = calculateROI(profit, turnover)
 
+      const surebetsWithPendingForAccount = surebets.filter((s) =>
+        (s.legs || []).some(
+          (l) => l.account === acc.account_number && l.bookmaker === acc.bookmaker && l.status === 'pending'
+        )
+      )
+      const potentialProfit = surebetsWithPendingForAccount.reduce(
+        (sum, s) => sum + calculatePotentialProfit(s),
+        0
+      )
+
       return {
         account: acc,
         legsCount: legs.length,
@@ -47,6 +58,7 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
         lost: legs.filter((l) => l.status === 'lost').length,
         refund: legs.filter((l) => l.status === 'refund').length,
         pending: legs.filter((l) => l.status === 'pending').length,
+        potentialProfit,
       }
     })
   }, [accounts, surebets])
@@ -71,6 +83,7 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
               <th className="py-2">Оборот</th>
               <th className="py-2">Прибыль</th>
               <th className="py-2">ROI</th>
+              <th className="py-2">Потенциал</th>
               <th className="py-2">Победы</th>
               <th className="py-2">Проигрыши</th>
               <th className="py-2">Возвраты</th>
@@ -90,6 +103,9 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
                   {formatMoney(stat.profit, currency as 'EUR' | 'USD')}
                 </td>
                 <td className="py-3">{stat.roi.toFixed(2)}%</td>
+                <td className="py-3 text-cyan-300">
+                  {stat.potentialProfit !== 0 ? formatMoney(stat.potentialProfit, currency as 'EUR' | 'USD') : '—'}
+                </td>
                 <td className="py-3 text-green-400">{stat.won}</td>
                 <td className="py-3 text-red-400">{stat.lost}</td>
                 <td className="py-3 text-gray-400">{stat.refund}</td>
