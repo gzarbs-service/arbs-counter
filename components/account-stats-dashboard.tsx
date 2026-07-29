@@ -45,11 +45,12 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
           (l) => l.account === acc.account_number && l.bookmaker === acc.bookmaker && l.status === 'pending'
         )
       )
-      const potentialProfitMin = surebetsWithPendingForAccount.reduce(
+      const simpleSurebetsWithPending = surebetsWithPendingForAccount.filter((s) => (s.legs || []).length <= 2)
+      const potentialProfitMin = simpleSurebetsWithPending.reduce(
         (sum, s) => sum + calculatePotentialProfitRange(s).min,
         0
       )
-      const potentialProfitMax = surebetsWithPendingForAccount.reduce(
+      const potentialProfitMax = simpleSurebetsWithPending.reduce(
         (sum, s) => sum + calculatePotentialProfitRange(s).max,
         0
       )
@@ -115,17 +116,20 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
                 <td className="py-3 text-cyan-300">
                   {stat.pending === 0 ? (
                     '—'
-                  ) : stat.hasMultiLegPending ? (
-                    <span
-                      className="text-yellow-300"
-                      title="Среди вилок есть тройные+, где плечи могут быть связаны между собой через исходы матча — точный расчёт невозможен."
-                    >
-                      неточно (3+ плеча)
-                    </span>
-                  ) : stat.potentialProfitMin === stat.potentialProfitMax ? (
-                    formatMoney(stat.potentialProfitMin, currency as 'EUR' | 'USD')
                   ) : (
-                    `${formatMoney(stat.potentialProfitMin, currency as 'EUR' | 'USD')} / ${formatMoney(stat.potentialProfitMax, currency as 'EUR' | 'USD')}`
+                    <>
+                      {stat.potentialProfitMin === stat.potentialProfitMax
+                        ? formatMoney(stat.potentialProfitMin, currency as 'EUR' | 'USD')
+                        : `${formatMoney(stat.potentialProfitMin, currency as 'EUR' | 'USD')} / ${formatMoney(stat.potentialProfitMax, currency as 'EUR' | 'USD')}`}
+                      {stat.hasMultiLegPending && (
+                        <span
+                          className="ml-1 text-yellow-300 text-xs"
+                          title="Тройные и более вилки не учтены в этой сумме, так как их плечи могут быть связаны через исходы матча и не считаются точно."
+                        >
+                          (без учёта тройных)
+                        </span>
+                      )}
+                    </>
                   )}
                 </td>
                 <td className="py-3 text-green-400">{stat.won}</td>
