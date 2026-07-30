@@ -9,6 +9,7 @@ export interface Filters {
   status: string
   dateFrom: string
   dateTo: string
+  search: string
 }
 
 interface WorkerOption {
@@ -30,6 +31,7 @@ const initialFilters: Filters = {
   status: '',
   dateFrom: '',
   dateTo: '',
+  search: '',
 }
 
 export default function FiltersPanel({ workers, bookmakers, sports, onChange }: FiltersPanelProps) {
@@ -68,6 +70,13 @@ export default function FiltersPanel({ workers, bookmakers, sports, onChange }: 
         )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <input
+          type="search"
+          value={filters.search}
+          onChange={(e) => update('search', e.target.value)}
+          className={inputClass + ' col-span-full'}
+          placeholder="Поиск по матчу, рынку, конторе, счету..."
+        />
         {workers && workers.length > 0 && (
           <select
             value={filters.worker}

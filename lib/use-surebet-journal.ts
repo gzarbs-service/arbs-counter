@@ -33,6 +33,7 @@ export function useSurebetJournal({
     status: '',
     dateFrom: '',
     dateTo: '',
+    search: '',
   })
 
   const fetchSurebets = useCallback(async () => {
@@ -91,6 +92,20 @@ export function useSurebetJournal({
       if (filters.dateTo) {
         const to = new Date(filters.dateTo + 'T23:59:59.999Z')
         if (new Date(s.created_at) > to) return false
+      }
+      if (filters.search) {
+        const q = filters.search.toLowerCase()
+        const haystack = [
+          s.match_name,
+          s.sport,
+          s.comment,
+          usernames[s.user_id],
+          ...s.legs.flatMap((l) => [l.bookmaker, l.market, l.account]),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        if (!haystack.includes(q)) return false
       }
       return true
     })
