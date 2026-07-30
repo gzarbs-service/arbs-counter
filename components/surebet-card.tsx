@@ -99,7 +99,8 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
     setDraftStatuses((prev) => ({ ...prev, [legId]: status }))
   }
 
-  const buildSyncPayload = (legs: Leg[], sportValue?: string, commentValue?: string) => {
+  const buildSyncPayload = (legs: Leg[], sportValue?: string, commentValue?: string, settledAtValue?: string) => {
+    const endDate = settledAtValue ? formatDate(settledAtValue) : ''
     return {
       rows: legs.map((leg) => ({
         account: leg.account,
@@ -110,7 +111,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
         market: leg.market,
         stake: leg.stake,
         odds: leg.odds,
-        endDate: formatDate(surebet.created_at),
+        endDate,
         status: leg.status,
         profit: calculateLegProfit(leg),
         comment: commentValue !== undefined ? commentValue : (surebet.comment || ''),
@@ -136,7 +137,17 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       status: draftStatuses[leg.id] ?? leg.status,
     }))
 
-    syncToSheets(surebet.id, buildSyncPayload(updatedLegs))
+    const allSettled = updatedLegs.length > 0 && updatedLegs.every((leg) => leg.status !== 'pending')
+    let settledAt = surebet.settled_at
+    if (allSettled && !settledAt) {
+      const now = new Date().toISOString()
+      const { error } = await supabaseClient.from('surebets').update({ settled_at: now }).eq('id', surebet.id)
+      if (!error) {
+        settledAt = now
+      }
+    }
+
+    syncToSheets(surebet.id, buildSyncPayload(updatedLegs, undefined, undefined, settledAt || ''))
 
     setDraftStatuses({})
     onUpdate()
@@ -285,7 +296,17 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       stake: Number(leg.stake),
     })) as Leg[]
 
-    syncToSheets(surebet.id, buildSyncPayload(finalLegs, sport, draft.comment.trim()))
+    const allSettled = finalLegs.length > 0 && finalLegs.every((leg) => leg.status !== 'pending')
+    let settledAt = surebet.settled_at
+    if (allSettled && !settledAt) {
+      const now = new Date().toISOString()
+      const { error } = await supabaseClient.from('surebets').update({ settled_at: now }).eq('id', surebet.id)
+      if (!error) {
+        settledAt = now
+      }
+    }
+
+    syncToSheets(surebet.id, buildSyncPayload(finalLegs, sport, draft.comment.trim(), settledAt || ''))
 
     setSavingEdit(false)
     setIsEditing(false)

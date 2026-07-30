@@ -219,7 +219,7 @@ export default function SurebetForm({ accounts, isAdmin, onCreated }: SurebetFor
       market: leg.market.trim(),
       stake: parseFloat(leg.stake),
       odds: parseFloat(leg.odds),
-      endDate: formatDate(surebet.created_at),
+      endDate: '',
       status: 'pending' as const,
       profit: 0,
       comment: surebet.comment || '',

@@ -40,6 +40,7 @@ export interface Surebet {
   status: 'pending' | 'settled'
   comment: string | null
   created_at: string
+  settled_at?: string | null
   legs?: Leg[]
   profiles?: {
     username: string
