@@ -51,6 +51,21 @@ function doPost(e) {
         }
       }
 
+      if (matchedIndex === -1 && data.rows.length === existingRows.length) {
+        for (var i = 0; i < existingRows.length; i++) {
+          if (usedExisting.indexOf(i) === -1) {
+            matchedIndex = i;
+            usedExisting.push(i);
+            break;
+          }
+        }
+      }
+
+      if (matchedIndex !== -1) {
+        existingRows[matchedIndex].bookmaker = row.bookmaker;
+        existingRows[matchedIndex].market = row.market;
+      }
+
       var values = [
         row.account,
         row.bookmaker,
