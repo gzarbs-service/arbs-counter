@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { calculateExpectedProfitFromStakes, calculateROI, formatMoney } from '@/lib/calc'
+import { calculateExpectedProfitFromStakes, calculateROI, formatMoney, formatDate } from '@/lib/calc'
 import { SPORTS, MARKETS } from '@/lib/constants'
 import ComboboxInput from './combobox-input'
 import AccountSelect from './account-select'
@@ -209,6 +209,30 @@ export default function SurebetForm({ accounts, isAdmin, onCreated }: SurebetFor
       setLoading(false)
       return
     }
+
+    const sheetRows = legs.map((leg) => ({
+      account: leg.account.trim(),
+      bookmaker: leg.bookmaker.trim(),
+      eventNumber: '',
+      betDate: formatDate(surebet.created_at),
+      sport: surebet.sport,
+      market: leg.market.trim(),
+      stake: parseFloat(leg.stake),
+      odds: parseFloat(leg.odds),
+      endDate: formatDate(surebet.created_at),
+      status: 'pending' as const,
+      profit: 0,
+      comment: surebet.comment || '',
+      betId: surebet.id,
+    }))
+
+    fetch('/api/sheets-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'sync', surebetId: surebet.id, rows: sheetRows }),
+    }).catch(() => {
+      // Silently ignore sync errors so it never blocks the main workflow.
+    })
 
     resetForm()
     setLoading(false)

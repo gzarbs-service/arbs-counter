@@ -99,27 +99,22 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
     setDraftStatuses((prev) => ({ ...prev, [legId]: status }))
   }
 
-  const buildSyncPayload = (legs: Leg[], bank: number, matchName?: string, sport?: string, comment?: string) => {
-    const finalProfit = legs.reduce((sum, leg) => sum + calculateLegProfit(leg), 0)
-    const finalROI = calculateROI(finalProfit, bank)
+  const buildSyncPayload = (legs: Leg[], sportValue?: string, commentValue?: string) => {
     return {
-      matchDate: formatDate(surebet.created_at),
-      matchName: matchName || surebet.match_name,
-      sport: sport || surebet.sport,
-      worker: username || surebet.user_id,
-      bank,
-      profit: finalProfit,
-      roi: finalROI,
-      comment: comment !== undefined ? comment : (surebet.comment || ''),
-      legs: legs.map((leg) => ({
-        bookmaker: leg.bookmaker,
+      rows: legs.map((leg) => ({
         account: leg.account,
+        bookmaker: leg.bookmaker,
+        eventNumber: '',
+        betDate: formatDate(surebet.created_at),
+        sport: sportValue || surebet.sport,
         market: leg.market,
-        odds: leg.odds,
         stake: leg.stake,
+        odds: leg.odds,
+        endDate: formatDate(surebet.created_at),
         status: leg.status,
-        payout: calculateLegPayout(leg),
-        result: calculateLegProfit(leg),
+        profit: calculateLegProfit(leg),
+        comment: commentValue !== undefined ? commentValue : (surebet.comment || ''),
+        betId: surebet.id,
       })),
     }
   }
@@ -140,11 +135,8 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       ...leg,
       status: draftStatuses[leg.id] ?? leg.status,
     }))
-    const allSettled = updatedLegs.length > 0 && updatedLegs.every((leg) => leg.status !== 'pending')
 
-    if (allSettled) {
-      syncToSheets(surebet.id, buildSyncPayload(updatedLegs, Number(surebet.bank)))
-    }
+    syncToSheets(surebet.id, buildSyncPayload(updatedLegs))
 
     setDraftStatuses({})
     onUpdate()
@@ -293,10 +285,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       stake: Number(leg.stake),
     })) as Leg[]
 
-    const allSettled = finalLegs.length > 0 && finalLegs.every((leg) => leg.status !== 'pending')
-    if (allSettled) {
-      syncToSheets(surebet.id, buildSyncPayload(finalLegs, bank, matchName, sport, draft.comment.trim()))
-    }
+    syncToSheets(surebet.id, buildSyncPayload(finalLegs, sport, draft.comment.trim()))
 
     setSavingEdit(false)
     setIsEditing(false)
