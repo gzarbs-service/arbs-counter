@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Account, Profile, SurebetWithLegs } from '@/lib/types'
 import { useSurebetJournal } from '@/lib/use-surebet-journal'
+import { hasPendingLegs } from '@/lib/calc'
 import { CurrencyProvider } from './currency-context'
 import SurebetCard from './surebet-card'
 import FiltersPanel from './filters-panel'
@@ -53,6 +54,17 @@ export default function JournalPage({
     isAdmin,
   })
 
+  const [activeTab, setActiveTab] = useState<'current' | 'settled'>('current')
+
+  const currentSurebets = useMemo(
+    () => filteredSurebets.filter((s) => hasPendingLegs(s)),
+    [filteredSurebets]
+  )
+  const settledSurebets = useMemo(
+    () => filteredSurebets.filter((s) => !hasPendingLegs(s)),
+    [filteredSurebets]
+  )
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
@@ -94,8 +106,12 @@ export default function JournalPage({
           )}
 
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <p className="text-sm text-gray-400">Найдено вилок: {filteredSurebets.length}</p>
-            <CsvExport surebets={filteredSurebets} usernames={usernames} filename="surebets" />
+            <p className="text-sm text-gray-400">
+              {activeTab === 'current'
+                ? `Текущих вилок: ${currentSurebets.length}`
+                : `Рассчитанных вилок: ${settledSurebets.length}`}
+            </p>
+            <CsvExport surebets={activeTab === 'current' ? currentSurebets : settledSurebets} usernames={usernames} filename={activeTab === 'current' ? 'current-surebets' : 'settled-surebets'} />
           </div>
 
           <FiltersPanel
@@ -105,13 +121,40 @@ export default function JournalPage({
             onChange={setFilters}
           />
 
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('current')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                activeTab === 'current'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                  : 'glass text-gray-400 hover:border-cyan-400/40'
+              }`}
+            >
+              Текущие ({currentSurebets.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('settled')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                activeTab === 'settled'
+                  ? 'bg-green-500/20 text-green-300 border border-green-500/40'
+                  : 'glass text-gray-400 hover:border-green-400/40'
+              }`}
+            >
+              Рассчитанные ({settledSurebets.length})
+            </button>
+          </div>
+
           <div className="space-y-4">
             {loading ? (
               <p className="text-gray-400">Загрузка...</p>
-            ) : filteredSurebets.length === 0 ? (
-              <p className="text-gray-500">Нет вилок по выбранным фильтрам.</p>
+            ) : (activeTab === 'current' ? currentSurebets : settledSurebets).length === 0 ? (
+              <p className="text-gray-500">
+                {activeTab === 'current'
+                  ? 'Нет текущих вилок.'
+                  : 'Нет рассчитанных вилок.'}
+              </p>
             ) : (
-              filteredSurebets.map((surebet) => (
+              (activeTab === 'current' ? currentSurebets : settledSurebets).map((surebet) => (
                 <SurebetCard
                   key={surebet.id}
                   surebet={surebet}
