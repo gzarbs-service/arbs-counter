@@ -8,6 +8,7 @@ import { useCurrency } from './currency-context'
 interface AccountStatsDashboardProps {
   accounts: Account[]
   surebets: SurebetWithLegs[]
+  embedded?: boolean
 }
 
 interface AccountStat {
@@ -25,7 +26,7 @@ interface AccountStat {
   hasMultiLegPending: boolean
 }
 
-export default function AccountStatsDashboard({ accounts, surebets }: AccountStatsDashboardProps) {
+export default function AccountStatsDashboard({ accounts, surebets, embedded = false }: AccountStatsDashboardProps) {
   const { currency } = useCurrency()
 
   const stats = useMemo<AccountStat[]>(() => {
@@ -74,16 +75,18 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
   }, [accounts, surebets])
 
   if (accounts.length === 0) {
-    return (
-      <div className="glass rounded-2xl p-6 text-sm text-gray-500">
+    const emptyMsg = (
+      <p className="text-sm text-gray-500">
         Пока нет добавленных аккаунтов. Сначала добавьте аккаунты в разделе «Аккаунты».
-      </div>
+      </p>
     )
+    if (embedded) return emptyMsg
+    return <div className="glass rounded-2xl p-6">{emptyMsg}</div>
   }
 
-  return (
-    <div className="glass rounded-2xl p-6 space-y-4">
-      <h2 className="text-xl font-semibold text-cyan-400">Статистика по аккаунтам</h2>
+  const content = (
+    <>
+      {!embedded && <h2 className="text-xl font-semibold text-cyan-400">Статистика по аккаунтам</h2>}
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
           <thead className="text-gray-400 border-b border-white/10">
@@ -141,6 +144,10 @@ export default function AccountStatsDashboard({ accounts, surebets }: AccountSta
           </tbody>
         </table>
       </div>
-    </div>
+    </>
   )
+
+  if (embedded) return <div className="space-y-4">{content}</div>
+
+  return <div className="glass rounded-2xl p-6 space-y-4">{content}</div>
 }

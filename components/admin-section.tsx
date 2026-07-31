@@ -16,9 +16,8 @@ export default function AdminSection({ initialUsers, surebets }: AdminSectionPro
   const [tab, setTab] = useState<Tab>('users')
 
   return (
-    <div className="glass rounded-2xl p-6 space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-xl font-semibold text-cyan-400">Панель администратора</h2>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end flex-wrap gap-3">
         <div className="flex gap-2">
           <button
             onClick={() => setTab('users')}

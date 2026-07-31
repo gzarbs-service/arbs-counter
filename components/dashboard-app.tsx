@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -14,6 +14,7 @@ import AccountsPanel from './accounts-panel'
 import AccountStatsDashboard from './account-stats-dashboard'
 import AdminSection from './admin-section'
 import CurrencySelect from './currency-select'
+import Modal from './modal'
 
 interface DashboardAppProps {
   initialProfile: Profile | null
@@ -55,28 +56,6 @@ export default function DashboardApp({
     isAdmin,
   })
 
-  const accountsRef = useRef<HTMLDivElement>(null)
-  const accountStatsRef = useRef<HTMLDivElement>(null)
-  const adminRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (showAccounts) {
-      accountsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [showAccounts])
-
-  useEffect(() => {
-    if (showAccountStats) {
-      accountStatsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [showAccountStats])
-
-  useEffect(() => {
-    if (showAdmin) {
-      adminRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [showAdmin])
-
   const [showBackToTop, setShowBackToTop] = useState(false)
 
   useEffect(() => {
@@ -110,23 +89,23 @@ export default function DashboardApp({
             <div className="flex items-center gap-3 flex-wrap">
               <CurrencySelect />
               <button
-                onClick={() => setShowAccounts(!showAccounts)}
+                onClick={() => setShowAccounts(true)}
                 className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium"
               >
-                {showAccounts ? 'Скрыть аккаунты' : 'Аккаунты'}
+                Аккаунты
               </button>
               <button
-                onClick={() => setShowAccountStats(!showAccountStats)}
+                onClick={() => setShowAccountStats(true)}
                 className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium"
               >
-                {showAccountStats ? 'Скрыть стату аккаунтов' : 'Статистика по аккаунтам'}
+                Статистика по аккаунтам
               </button>
               {isAdmin && (
                 <button
-                  onClick={() => setShowAdmin(!showAdmin)}
+                  onClick={() => setShowAdmin(true)}
                   className="px-4 py-2 rounded-lg glass hover:border-purple-400/40 transition text-sm font-medium"
                 >
-                  {showAdmin ? 'Скрыть админку' : 'Админ-панель'}
+                  Админ-панель
                 </button>
               )}
               <button
@@ -185,30 +164,25 @@ export default function DashboardApp({
           )}
         </div>
 
-        {/* Accounts panel */}
-        {showAccounts && (
-          <div className="pt-6" ref={accountsRef}>
-            <AccountsPanel
-              initialAccounts={accounts}
-              onChange={setAccounts}
-            />
-          </div>
-        )}
-
-        {/* Account stats dashboard */}
-        {showAccountStats && (
-          <div className="pt-6" ref={accountStatsRef}>
-            <AccountStatsDashboard accounts={accounts} surebets={filteredSurebets} />
-          </div>
-        )}
-
-        {/* Admin panel */}
-        {isAdmin && showAdmin && (
-          <div className="pt-6" ref={adminRef}>
-            <AdminSection initialUsers={initialProfiles} surebets={surebets} />
-          </div>
-        )}
       </div>
+
+      <Modal isOpen={showAccounts} onClose={() => setShowAccounts(false)} title="Аккаунты в игре">
+        <AccountsPanel
+          initialAccounts={accounts}
+          onChange={setAccounts}
+          embedded
+        />
+      </Modal>
+
+      <Modal isOpen={showAccountStats} onClose={() => setShowAccountStats(false)} title="Статистика по аккаунтам">
+        <AccountStatsDashboard accounts={accounts} surebets={filteredSurebets} embedded />
+      </Modal>
+
+      {isAdmin && (
+        <Modal isOpen={showAdmin} onClose={() => setShowAdmin(false)} title="Панель администратора">
+          <AdminSection initialUsers={initialProfiles} surebets={surebets} />
+        </Modal>
+      )}
 
       {showBackToTop && (
         <button

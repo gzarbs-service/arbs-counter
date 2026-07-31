@@ -10,9 +10,10 @@ const BOOKMAKERS = ['Fezbet', 'N1bet', 'Stonevegas', 'Pinnacle', 'Bookmaker.xyz'
 interface AccountsPanelProps {
   initialAccounts: Account[]
   onChange: (accounts: Account[]) => void
+  embedded?: boolean
 }
 
-export default function AccountsPanel({ initialAccounts, onChange }: AccountsPanelProps) {
+export default function AccountsPanel({ initialAccounts, onChange, embedded = false }: AccountsPanelProps) {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts)
   const [bookmaker, setBookmaker] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
@@ -79,9 +80,9 @@ export default function AccountsPanel({ initialAccounts, onChange }: AccountsPan
 
   const inputClass = 'w-full px-3 py-2 rounded-lg input-dark text-sm'
 
-  return (
-    <div className="glass rounded-2xl p-6 space-y-6">
-      <h2 className="text-xl font-semibold text-cyan-400">Аккаунты в игре</h2>
+  const content = (
+    <>
+      {!embedded && <h2 className="text-xl font-semibold text-cyan-400">Аккаунты в игре</h2>}
 
       <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
         <ComboboxInput
@@ -190,6 +191,10 @@ export default function AccountsPanel({ initialAccounts, onChange }: AccountsPan
           ))
         )}
       </div>
-    </div>
+    </>
   )
+
+  if (embedded) return <div className="space-y-6">{content}</div>
+
+  return <div className="glass rounded-2xl p-6 space-y-6">{content}</div>
 }
