@@ -35,7 +35,7 @@ const ERROR_TOLERANCE = 0.05
  *    that was mathematically possible given the entered odds/stakes
  *    (only checked for 2-leg, fully settled surebets, where the
  *    potential range is exact).
- * 3. A comment was left on the surebet (manual flag by the worker/admin).
+ * 3. The comment contains the word "ошибка" (manual flag by the worker/admin).
  */
 export function isFlaggedError(surebet: SurebetWithLegs): boolean {
   const legs = surebet.legs || []
@@ -44,7 +44,7 @@ export function isFlaggedError(surebet: SurebetWithLegs): boolean {
   const impliedSum = legs.reduce((sum, l) => sum + 1 / Number(l.odds), 0)
   if (impliedSum >= 1) return true
 
-  if (surebet.comment && surebet.comment.trim() !== '') return true
+  if (surebet.comment && surebet.comment.toLowerCase().includes('ошибка')) return true
 
   if (!hasPendingLegs(surebet) && legs.length === 2) {
     const range = calculatePotentialProfitRange(surebet)

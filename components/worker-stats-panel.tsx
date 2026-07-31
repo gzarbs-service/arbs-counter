@@ -125,7 +125,7 @@ export default function WorkerStatsPanel({ profiles, surebets }: WorkerStatsPane
                       {stat.errorCount > 0 && (
                         <p className="text-xs text-yellow-400 mt-3 px-2">
                           Вилки с признаками ошибки: {stat.errorSurebetIds.length} шт. (некорректные коэффициенты,
-                          результат хуже расчётного минимума, либо оставлен комментарий).
+                          результат хуже расчётного минимума, либо в комментарии есть слово «ошибка»).
                         </p>
                       )}
                     </td>
