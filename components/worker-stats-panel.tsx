@@ -3,12 +3,53 @@
 import { Fragment, useMemo, useState } from 'react'
 import { Profile, SurebetWithLegs } from '@/lib/types'
 import { computeWorkerStats, WorkerStat } from '@/lib/worker-stats'
-import { formatMoney } from '@/lib/calc'
+import { formatMoney, formatDate } from '@/lib/calc'
 import { useCurrency } from './currency-context'
 
 interface WorkerStatsPanelProps {
   profiles: Profile[]
   surebets: SurebetWithLegs[]
+}
+
+function ErrorsTable({ errors, currency }: { errors: WorkerStat['errors']; currency: 'EUR' | 'USD' }) {
+  if (errors.length === 0) return null
+  return (
+    <div>
+      <p className="text-xs text-gray-400 mb-1">Вилки с признаками ошибки</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs text-left">
+          <thead className="text-gray-500 border-b border-white/10">
+            <tr>
+              <th className="py-1 pr-3">Матч</th>
+              <th className="py-1 pr-3">Спорт</th>
+              <th className="py-1 pr-3">Дата</th>
+              <th className="py-1 pr-3">Прибыль</th>
+              <th className="py-1">Причина</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {errors.map((e) => (
+              <tr key={e.id}>
+                <td className="py-1.5 pr-3 text-white whitespace-nowrap">{e.matchName}</td>
+                <td className="py-1.5 pr-3 text-gray-300 whitespace-nowrap">{e.sport}</td>
+                <td className="py-1.5 pr-3 text-gray-400 whitespace-nowrap">{formatDate(e.createdAt)}</td>
+                <td className={`py-1.5 pr-3 whitespace-nowrap ${e.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {formatMoney(e.profit, currency)}
+                </td>
+                <td className="py-1.5 text-yellow-400">
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {e.reasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
 }
 
 function BreakdownTable({ title, rows, currency }: { title: string; rows: WorkerStat['bySport']; currency: 'EUR' | 'USD' }) {
@@ -55,7 +96,7 @@ export default function WorkerStatsPanel({ profiles, surebets }: WorkerStatsPane
 
   const sorted = useMemo(() => [...stats].sort((a, b) => b.profit - a.profit), [stats])
 
-  if (profiles.length === 0) {
+  if (stats.length === 0) {
     return (
       <div className="glass rounded-2xl p-6 text-sm text-gray-500">
         Нет работников для отображения статистики.
@@ -122,11 +163,10 @@ export default function WorkerStatsPanel({ profiles, surebets }: WorkerStatsPane
                         <BreakdownTable title="По видам спорта" rows={stat.bySport} currency={currencyCode} />
                         <BreakdownTable title="По букмекерам" rows={stat.byBookmaker} currency={currencyCode} />
                       </div>
-                      {stat.errorCount > 0 && (
-                        <p className="text-xs text-yellow-400 mt-3 px-2">
-                          Вилки с признаками ошибки: {stat.errorSurebetIds.length} шт. (некорректные коэффициенты,
-                          результат хуже расчётного минимума, либо в комментарии есть слово «ошибка»).
-                        </p>
+                      {stat.errors.length > 0 && (
+                        <div className="mt-4 px-2">
+                          <ErrorsTable errors={stat.errors} currency={currencyCode} />
+                        </div>
                       )}
                     </td>
                   </tr>

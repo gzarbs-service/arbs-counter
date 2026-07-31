@@ -9,6 +9,15 @@ export interface BreakdownStat {
   roi: number
 }
 
+export interface ErrorDetail {
+  id: string
+  matchName: string
+  sport: string
+  createdAt: string
+  profit: number
+  reasons: string[]
+}
+
 export interface WorkerStat {
   profile: Profile
   totalCount: number
@@ -20,7 +29,7 @@ export interface WorkerStat {
   roi: number
   avgRoi: number
   errorCount: number
-  errorSurebetIds: string[]
+  errors: ErrorDetail[]
   bySport: BreakdownStat[]
   byBookmaker: BreakdownStat[]
 }
@@ -28,7 +37,8 @@ export interface WorkerStat {
 const ERROR_TOLERANCE = 0.05
 
 /**
- * A surebet is flagged as a likely worker error if any of these hold:
+ * Returns the list of reasons a surebet is flagged as a likely worker error.
+ * Empty array means no error detected. Possible reasons:
  * 1. The entered odds don't mathematically form a real surebet
  *    (sum of implied probabilities >= 1) — most likely a typo in odds.
  * 2. The actual settled profit is worse than the worst-case outcome
@@ -37,22 +47,34 @@ const ERROR_TOLERANCE = 0.05
  *    potential range is exact).
  * 3. The comment contains the word "ошибка" (manual flag by the worker/admin).
  */
-export function isFlaggedError(surebet: SurebetWithLegs): boolean {
+export function getErrorReasons(surebet: SurebetWithLegs): string[] {
   const legs = surebet.legs || []
-  if (legs.length === 0) return false
+  if (legs.length === 0) return []
+
+  const reasons: string[] = []
 
   const impliedSum = legs.reduce((sum, l) => sum + 1 / Number(l.odds), 0)
-  if (impliedSum >= 1) return true
+  if (impliedSum >= 1) {
+    reasons.push('Некорректные коэффициенты (сумма обратных ≥ 1, вилка невозможна)')
+  }
 
-  if (surebet.comment && surebet.comment.toLowerCase().includes('ошибка')) return true
+  if (surebet.comment && surebet.comment.toLowerCase().includes('ошибка')) {
+    reasons.push(`Комментарий: «${surebet.comment}»`)
+  }
 
   if (!hasPendingLegs(surebet) && legs.length === 2) {
     const range = calculatePotentialProfitRange(surebet)
     const actual = calculateSurebetProfit(surebet)
-    if (actual < range.min - ERROR_TOLERANCE) return true
+    if (actual < range.min - ERROR_TOLERANCE) {
+      reasons.push(`Факт-прибыль (${actual.toFixed(2)}) хуже расчётного минимума (${range.min.toFixed(2)})`)
+    }
   }
 
-  return false
+  return reasons
+}
+
+export function isFlaggedError(surebet: SurebetWithLegs): boolean {
+  return getErrorReasons(surebet).length > 0
 }
 
 function buildBreakdown(surebets: SurebetWithLegs[], groupBySport: boolean): BreakdownStat[] {
@@ -96,7 +118,7 @@ export function computeWorkerStats(profiles: Profile[], surebets: SurebetWithLeg
   const day7 = now - 7 * 24 * 60 * 60 * 1000
   const day30 = now - 30 * 24 * 60 * 60 * 1000
 
-  return profiles.map((profile) => {
+  return profiles.filter((p) => p.role === 'worker').map((profile) => {
     const own = surebets.filter((s) => s.user_id === profile.id)
 
     const turnover = own.reduce((sum, s) => sum + Number(s.bank), 0)
@@ -110,7 +132,17 @@ export function computeWorkerStats(profiles: Profile[], surebets: SurebetWithLeg
     const count30d = own.filter((s) => new Date(s.created_at).getTime() >= day30).length
     const pendingCount = own.filter((s) => hasPendingLegs(s)).length
 
-    const errorSurebets = own.filter(isFlaggedError)
+    const errors: ErrorDetail[] = own
+      .map((s) => ({ surebet: s, reasons: getErrorReasons(s) }))
+      .filter((e) => e.reasons.length > 0)
+      .map((e) => ({
+        id: e.surebet.id,
+        matchName: e.surebet.match_name,
+        sport: e.surebet.sport,
+        createdAt: e.surebet.created_at,
+        profit: Number(calculateSurebetProfit(e.surebet).toFixed(2)),
+        reasons: e.reasons,
+      }))
 
     return {
       profile,
@@ -122,8 +154,8 @@ export function computeWorkerStats(profiles: Profile[], surebets: SurebetWithLeg
       profit: Number(profit.toFixed(2)),
       roi,
       avgRoi: Number(avgRoi.toFixed(2)),
-      errorCount: errorSurebets.length,
-      errorSurebetIds: errorSurebets.map((s) => s.id),
+      errorCount: errors.length,
+      errors,
       bySport: buildBreakdown(own, true),
       byBookmaker: buildBreakdown(own, false),
     }
