@@ -53,9 +53,16 @@ export function getErrorReasons(surebet: SurebetWithLegs): string[] {
 
   const reasons: string[] = []
 
-  const impliedSum = legs.reduce((sum, l) => sum + 1 / Number(l.odds), 0)
-  if (impliedSum >= 1) {
-    reasons.push('Некорректные коэффициенты (сумма обратных ≥ 1, вилка невозможна)')
+  // This check is only mathematically valid for a 2-leg surebet covering
+  // complementary outcomes of the same market. For 3+ legs the trader may
+  // combine different markets (e.g. DNB + handicap + moneyline) with
+  // custom, non-proportional stakes to guarantee profit — the raw sum of
+  // implied probabilities can legitimately exceed 1 in that case.
+  if (legs.length === 2) {
+    const impliedSum = legs.reduce((sum, l) => sum + 1 / Number(l.odds), 0)
+    if (impliedSum >= 1) {
+      reasons.push('Некорректные коэффициенты (сумма обратных ≥ 1, вилка невозможна)')
+    }
   }
 
   if (surebet.comment && surebet.comment.toLowerCase().includes('ошибка')) {
