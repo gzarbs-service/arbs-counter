@@ -6,9 +6,10 @@ import { Profile } from '@/lib/types'
 
 interface AdminPanelProps {
   initialUsers?: Profile[]
+  embedded?: boolean
 }
 
-export default function AdminPanel({ initialUsers = [] }: AdminPanelProps) {
+export default function AdminPanel({ initialUsers = [], embedded = false }: AdminPanelProps) {
   const [users, setUsers] = useState<Profile[]>(initialUsers)
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
@@ -42,10 +43,10 @@ export default function AdminPanel({ initialUsers = [] }: AdminPanelProps) {
     setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, role: newRole } : u)))
   }
 
-  return (
-    <div className="glass rounded-2xl p-6 space-y-4">
+  const content = (
+    <>
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-cyan-400">Панель администратора</h2>
+        {!embedded && <h2 className="text-xl font-semibold text-cyan-400">Панель администратора</h2>}
         <button
           onClick={fetchUsers}
           disabled={loading}
@@ -102,6 +103,10 @@ export default function AdminPanel({ initialUsers = [] }: AdminPanelProps) {
           </tbody>
         </table>
       </div>
-    </div>
+    </>
   )
+
+  if (embedded) return <div className="space-y-4">{content}</div>
+
+  return <div className="glass rounded-2xl p-6 space-y-4">{content}</div>
 }

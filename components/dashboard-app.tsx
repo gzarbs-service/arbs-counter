@@ -12,7 +12,7 @@ import SurebetForm from './surebet-form'
 import SurebetCard from './surebet-card'
 import AccountsPanel from './accounts-panel'
 import AccountStatsDashboard from './account-stats-dashboard'
-import AdminPanel from './admin-panel'
+import AdminSection from './admin-section'
 import CurrencySelect from './currency-select'
 
 interface DashboardAppProps {
@@ -46,6 +46,7 @@ export default function DashboardApp({
     error,
     fetchSurebets,
     filteredSurebets,
+    surebets,
   } = useSurebetJournal({
     initialSurebets,
     initialUsernames,
@@ -204,7 +205,7 @@ export default function DashboardApp({
         {/* Admin panel */}
         {isAdmin && showAdmin && (
           <div className="pt-6" ref={adminRef}>
-            <AdminPanel initialUsers={initialProfiles} />
+            <AdminSection initialUsers={initialProfiles} surebets={surebets} />
           </div>
         )}
       </div>
