@@ -33,6 +33,16 @@ function legResult(leg: Leg, currencyCode: MoneyCurrency) {
   if (leg.status === 'lost') {
     return { payoutText: formatMoney(0, currencyCode), netText: formatMoney(-Number(leg.stake), currencyCode) }
   }
+  if (leg.status === 'half_won') {
+    const halfStake = Number(leg.stake) / 2
+    const payout = halfStake * Number(leg.odds) + halfStake
+    const net = payout - Number(leg.stake)
+    return { payoutText: formatMoney(payout, currencyCode), netText: formatMoney(net, currencyCode) }
+  }
+  if (leg.status === 'half_lost') {
+    const halfStake = Number(leg.stake) / 2
+    return { payoutText: formatMoney(halfStake, currencyCode), netText: formatMoney(-halfStake, currencyCode) }
+  }
   return { payoutText: formatMoney(0, currencyCode), netText: formatMoney(0, currencyCode) }
 }
 

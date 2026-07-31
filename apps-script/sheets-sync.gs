@@ -25,7 +25,9 @@ function doPost(e) {
       won: 'Выигрыш',
       lost: 'Проигрыш',
       refund: 'Возврат',
-      pending: 'Ожидает'
+      pending: 'Ожидает',
+      half_won: 'Пол-выигрыш',
+      half_lost: 'Пол-проигрыш'
     };
 
     var existingRows = findExistingRows(sheet, data.surebetId);

@@ -27,7 +27,7 @@ export interface Leg {
   market: string
   odds: number
   stake: number
-  status: 'pending' | 'won' | 'lost' | 'refund'
+  status: 'pending' | 'won' | 'lost' | 'refund' | 'half_won' | 'half_lost'
   created_at: string
 }
 

@@ -24,6 +24,8 @@ const STATUS_OPTIONS: { value: Leg['status']; label: string; color: string }[] =
   { value: 'won', label: 'Выигрыш', color: 'green' },
   { value: 'lost', label: 'Проигрыш', color: 'red' },
   { value: 'refund', label: 'Возврат', color: 'yellow' },
+  { value: 'half_won', label: 'Пол-выигрыш', color: 'lime' },
+  { value: 'half_lost', label: 'Пол-проигрыш', color: 'orange' },
 ]
 
 const colorClasses: Record<string, { active: string; border: string; bg: string }> = {
@@ -31,6 +33,8 @@ const colorClasses: Record<string, { active: string; border: string; bg: string 
   red: { active: 'bg-red-500/20 border-red-500/50 text-red-400', border: 'border-red-500/30', bg: 'bg-red-500/5' },
   yellow: { active: 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400', border: 'border-yellow-500/30', bg: 'bg-yellow-500/5' },
   cyan: { active: 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/5' },
+  lime: { active: 'bg-lime-500/20 border-lime-500/50 text-lime-400', border: 'border-lime-500/30', bg: 'bg-lime-500/5' },
+  orange: { active: 'bg-orange-500/20 border-orange-500/50 text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/5' },
 }
 
 interface DraftLeg extends Leg {

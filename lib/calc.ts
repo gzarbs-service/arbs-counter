@@ -7,6 +7,14 @@ export function calculateLegProfit(leg: Leg): number {
   if (leg.status === 'lost') {
     return -Number(leg.stake.toFixed(2))
   }
+  if (leg.status === 'half_won') {
+    // Half of the stake wins at the given odds, the other half is refunded.
+    return Number(((leg.stake / 2) * (leg.odds - 1)).toFixed(2))
+  }
+  if (leg.status === 'half_lost') {
+    // Half of the stake is lost, the other half is refunded.
+    return -Number((leg.stake / 2).toFixed(2))
+  }
   // 'refund' or 'pending' => 0
   return 0
 }
@@ -43,6 +51,12 @@ export function calculateLegPayout(leg: Leg): number {
   }
   if (leg.status === 'refund') {
     return Number(Number(leg.stake).toFixed(2))
+  }
+  if (leg.status === 'half_won') {
+    return Number(((Number(leg.stake) / 2) * Number(leg.odds) + Number(leg.stake) / 2).toFixed(2))
+  }
+  if (leg.status === 'half_lost') {
+    return Number((Number(leg.stake) / 2).toFixed(2))
   }
   return 0
 }
