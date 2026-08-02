@@ -45,6 +45,8 @@ export default function DashboardApp({
     usernames,
     loading,
     error,
+    filters,
+    setFilters,
     fetchSurebets,
     filteredSurebets,
     surebets,
@@ -146,21 +148,37 @@ export default function DashboardApp({
               Показать все →
             </Link>
           </div>
+          <input
+            type="search"
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            placeholder="Поиск по матчу, рынку, конторе, счёту..."
+            className="w-full px-3 py-2 rounded-lg input-dark text-sm"
+          />
           {loading ? (
             <p className="text-gray-400">Загрузка...</p>
           ) : filteredSurebets.length === 0 ? (
-            <p className="text-gray-500">Пока нет вилок.</p>
+            <p className="text-gray-500">
+              {filters.search ? 'Ничего не найдено.' : 'Пока нет вилок.'}
+            </p>
           ) : (
-            filteredSurebets.slice(0, 5).map((surebet) => (
-              <SurebetCard
-                key={surebet.id}
-                surebet={surebet}
-                isAdmin={isAdmin}
-                username={usernames[surebet.user_id]}
-                accounts={accounts}
-                onUpdate={fetchSurebets}
-              />
-            ))
+            <>
+              {filters.search && (
+                <p className="text-xs text-gray-500">
+                  Найдено: {filteredSurebets.length}
+                </p>
+              )}
+              {filteredSurebets.slice(0, filters.search ? 20 : 5).map((surebet) => (
+                <SurebetCard
+                  key={surebet.id}
+                  surebet={surebet}
+                  isAdmin={isAdmin}
+                  username={usernames[surebet.user_id]}
+                  accounts={accounts}
+                  onUpdate={fetchSurebets}
+                />
+              ))}
+            </>
           )}
         </div>
 
