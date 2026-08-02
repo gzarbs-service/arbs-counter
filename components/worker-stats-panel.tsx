@@ -1,17 +1,34 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
-import { Profile, SurebetWithLegs } from '@/lib/types'
+import { Account, Profile, SurebetWithLegs } from '@/lib/types'
 import { computeWorkerStats, WorkerStat } from '@/lib/worker-stats'
 import { formatMoney, formatDate } from '@/lib/calc'
 import { useCurrency } from './currency-context'
+import SurebetCard from './surebet-card'
 
 interface WorkerStatsPanelProps {
   profiles: Profile[]
   surebets: SurebetWithLegs[]
+  accounts?: Account[]
+  onUpdate?: () => void
 }
 
-function ErrorsTable({ errors, currency }: { errors: WorkerStat['errors']; currency: 'EUR' | 'USD' }) {
+function ErrorsTable({
+  errors,
+  currency,
+  ownerUsername,
+  accounts,
+  onUpdate,
+}: {
+  errors: WorkerStat['errors']
+  currency: 'EUR' | 'USD'
+  ownerUsername: string
+  accounts?: Account[]
+  onUpdate?: () => void
+}) {
+  const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null)
+
   if (errors.length === 0) return null
   return (
     <div>
@@ -29,21 +46,43 @@ function ErrorsTable({ errors, currency }: { errors: WorkerStat['errors']; curre
           </thead>
           <tbody className="divide-y divide-white/5">
             {errors.map((e) => (
-              <tr key={e.id}>
-                <td className="py-1.5 pr-3 text-white whitespace-nowrap">{e.matchName}</td>
-                <td className="py-1.5 pr-3 text-gray-300 whitespace-nowrap">{e.sport}</td>
-                <td className="py-1.5 pr-3 text-gray-400 whitespace-nowrap">{formatDate(e.createdAt)}</td>
-                <td className={`py-1.5 pr-3 whitespace-nowrap ${e.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {formatMoney(e.profit, currency)}
-                </td>
-                <td className="py-1.5 text-yellow-400">
-                  <ul className="list-disc list-inside space-y-0.5">
-                    {e.reasons.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </td>
-              </tr>
+              <Fragment key={e.id}>
+                <tr>
+                  <td className="py-1.5 pr-3 whitespace-nowrap">
+                    <button
+                      onClick={() => setExpandedErrorId(expandedErrorId === e.id ? null : e.id)}
+                      className="text-cyan-400 hover:text-cyan-300 hover:underline transition text-left"
+                    >
+                      {e.matchName}
+                    </button>
+                  </td>
+                  <td className="py-1.5 pr-3 text-gray-300 whitespace-nowrap">{e.sport}</td>
+                  <td className="py-1.5 pr-3 text-gray-400 whitespace-nowrap">{formatDate(e.createdAt)}</td>
+                  <td className={`py-1.5 pr-3 whitespace-nowrap ${e.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {formatMoney(e.profit, currency)}
+                  </td>
+                  <td className="py-1.5 text-yellow-400">
+                    <ul className="list-disc list-inside space-y-0.5">
+                      {e.reasons.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </td>
+                </tr>
+                {expandedErrorId === e.id && (
+                  <tr>
+                    <td colSpan={5} className="py-3 bg-white/[0.02]">
+                      <SurebetCard
+                        surebet={e.surebet}
+                        isAdmin
+                        username={ownerUsername}
+                        accounts={accounts}
+                        onUpdate={onUpdate ?? (() => {})}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -87,7 +126,7 @@ function BreakdownTable({ title, rows, currency }: { title: string; rows: Worker
   )
 }
 
-export default function WorkerStatsPanel({ profiles, surebets }: WorkerStatsPanelProps) {
+export default function WorkerStatsPanel({ profiles, surebets, accounts, onUpdate }: WorkerStatsPanelProps) {
   const { currency } = useCurrency()
   const currencyCode = currency as 'EUR' | 'USD'
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -165,7 +204,13 @@ export default function WorkerStatsPanel({ profiles, surebets }: WorkerStatsPane
                       </div>
                       {stat.errors.length > 0 && (
                         <div className="mt-4 px-2">
-                          <ErrorsTable errors={stat.errors} currency={currencyCode} />
+                          <ErrorsTable
+                            errors={stat.errors}
+                            currency={currencyCode}
+                            ownerUsername={stat.profile.username}
+                            accounts={accounts}
+                            onUpdate={onUpdate}
+                          />
                         </div>
                       )}
                     </td>

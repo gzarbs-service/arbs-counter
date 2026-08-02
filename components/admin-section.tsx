@@ -1,18 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Profile, SurebetWithLegs } from '@/lib/types'
+import { Account, Profile, SurebetWithLegs } from '@/lib/types'
 import AdminPanel from './admin-panel'
 import WorkerStatsPanel from './worker-stats-panel'
 
 interface AdminSectionProps {
   initialUsers: Profile[]
   surebets: SurebetWithLegs[]
+  accounts?: Account[]
+  onUpdate?: () => void
 }
 
 type Tab = 'users' | 'stats'
 
-export default function AdminSection({ initialUsers, surebets }: AdminSectionProps) {
+export default function AdminSection({ initialUsers, surebets, accounts, onUpdate }: AdminSectionProps) {
   const [tab, setTab] = useState<Tab>('users')
 
   return (
@@ -45,7 +47,7 @@ export default function AdminSection({ initialUsers, surebets }: AdminSectionPro
       {tab === 'users' ? (
         <AdminPanel initialUsers={initialUsers} embedded />
       ) : (
-        <WorkerStatsPanel profiles={initialUsers} surebets={surebets} />
+        <WorkerStatsPanel profiles={initialUsers} surebets={surebets} accounts={accounts} onUpdate={onUpdate} />
       )}
     </div>
   )

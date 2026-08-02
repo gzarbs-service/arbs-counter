@@ -16,6 +16,7 @@ export interface ErrorDetail {
   createdAt: string
   profit: number
   reasons: string[]
+  surebet: SurebetWithLegs
 }
 
 export interface WorkerStat {
@@ -157,6 +158,7 @@ export function computeWorkerStats(profiles: Profile[], surebets: SurebetWithLeg
         createdAt: e.surebet.created_at,
         profit: Number(calculateSurebetProfit(e.surebet).toFixed(2)),
         reasons: e.reasons,
+        surebet: e.surebet,
       }))
 
     return {
