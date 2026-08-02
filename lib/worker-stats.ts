@@ -69,7 +69,15 @@ export function getErrorReasons(surebet: SurebetWithLegs): string[] {
     reasons.push(`Комментарий: «${surebet.comment}»`)
   }
 
-  if (!hasPendingLegs(surebet) && legs.length === 2) {
+  // The potential range model only accounts for a clean win/lose outcome per
+  // leg. Refunds and half-won/half-lost results (void matches, pushes, etc.)
+  // are legitimate external outcomes outside the worker's control, so skip
+  // this check when any leg settled that way to avoid false positives.
+  const hasNonBinaryOutcome = legs.some((l) =>
+    ['refund', 'half_won', 'half_lost'].includes(l.status)
+  )
+
+  if (!hasPendingLegs(surebet) && !hasNonBinaryOutcome && legs.length === 2) {
     const range = calculatePotentialProfitRange(surebet)
     const actual = calculateSurebetProfit(surebet)
     if (actual < range.min - ERROR_TOLERANCE) {
