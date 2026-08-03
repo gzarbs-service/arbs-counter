@@ -60,19 +60,42 @@ function createNewLeg(surebetId: string): DraftLeg {
   }
 }
 
-function syncToSheets(surebetId: string, surebetData: object) {
-  fetch('/api/sheets-sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'sync', surebetId, ...surebetData }),
-  }).catch(() => {
-    // Silently ignore sync errors so it never blocks the main workflow.
-  })
+// Returns whether the sync actually succeeded, so callers can surface
+// success/failure to the user instead of silently swallowing the result.
+async function syncToSheets(surebetId: string, surebetData: object): Promise<boolean> {
+  try {
+    const res = await fetch('/api/sheets-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'sync', surebetId, ...surebetData }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
 }
+
+type SyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
 export default function SurebetCard({ surebet, isAdmin, username, accounts = [], onUpdate }: SurebetCardProps) {
   const { currency } = useCurrency()
   const [draftStatuses, setDraftStatuses] = useState<Record<string, Leg['status']>>({})
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
+  const [lastSyncPayload, setLastSyncPayload] = useState<object | null>(null)
+
+  const runSync = async (payload: object) => {
+    setSyncStatus('syncing')
+    setLastSyncPayload(payload)
+    const ok = await syncToSheets(surebet.id, payload)
+    setSyncStatus(ok ? 'success' : 'error')
+    if (ok) {
+      setTimeout(() => setSyncStatus((s) => (s === 'success' ? 'idle' : s)), 3000)
+    }
+  }
+
+  const retrySync = () => {
+    if (lastSyncPayload) runSync(lastSyncPayload)
+  }
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState({ matchName: surebet.match_name, sport: surebet.sport, comment: stripAutoErrorComment(surebet.comment || '') })
   const [draftLegs, setDraftLegs] = useState<DraftLeg[]>(() => surebet.legs?.map((leg) => ({ ...leg, isNew: false })) || [])
@@ -164,7 +187,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       }
     }
 
-    syncToSheets(surebet.id, buildSyncPayload(updatedLegs, undefined, currentComment, settledAt || ''))
+    runSync(buildSyncPayload(updatedLegs, undefined, currentComment, settledAt || ''))
 
     setDraftStatuses({})
     onUpdate()
@@ -178,13 +201,18 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       return
     }
 
-    fetch('/api/sheets-sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', surebetId: surebet.id }),
-    }).catch(() => {
-      // Silently ignore sync errors so it never blocks the main workflow.
-    })
+    try {
+      const res = await fetch('/api/sheets-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', surebetId: surebet.id }),
+      })
+      if (!res.ok) {
+        alert('Вилка удалена, но не удалось синхронизировать удаление с Google Таблицей. Проверьте таблицу вручную.')
+      }
+    } catch {
+      alert('Вилка удалена, но не удалось синхронизировать удаление с Google Таблицей. Проверьте таблицу вручную.')
+    }
     onUpdate()
   }
 
@@ -332,7 +360,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       }
     }
 
-    syncToSheets(surebet.id, buildSyncPayload(finalLegs, sport, autoComment, settledAt || ''))
+    runSync(buildSyncPayload(finalLegs, sport, autoComment, settledAt || ''))
 
     setSavingEdit(false)
     setIsEditing(false)
@@ -568,6 +596,29 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
           >
             Сохранить результат
           </button>
+        </div>
+      )}
+
+      {syncStatus !== 'idle' && (
+        <div className="flex justify-end">
+          {syncStatus === 'syncing' && (
+            <span className="text-xs text-gray-400">Синхронизация с таблицей...</span>
+          )}
+          {syncStatus === 'success' && (
+            <span className="text-xs text-green-400">✓ Синхронизировано с таблицей</span>
+          )}
+          {syncStatus === 'error' && (
+            <span className="flex items-center gap-2 text-xs text-red-400">
+              ⚠ Не удалось синхронизировать с Google Таблицей
+              <button
+                type="button"
+                onClick={retrySync}
+                className="text-cyan-400 hover:text-cyan-300 underline"
+              >
+                Повторить
+              </button>
+            </span>
+          )}
         </div>
       )}
 

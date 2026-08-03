@@ -181,7 +181,7 @@ export default function DashboardApp({
             className="w-full px-3 py-2 rounded-lg input-dark text-sm"
           />
           {searching && <p className="text-xs text-gray-500">Поиск...</p>}
-          {loading ? (
+          {loading && filteredSurebets.length === 0 ? (
             <p className="text-gray-400">Загрузка...</p>
           ) : filteredSurebets.length === 0 ? (
             <p className="text-gray-500">

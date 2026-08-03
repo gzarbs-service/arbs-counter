@@ -171,7 +171,7 @@ export default function JournalPage({
           </div>
 
           <div className="space-y-4">
-            {loading ? (
+            {loading && currentSurebets.length === 0 && settledSurebets.length === 0 ? (
               <p className="text-gray-400">Загрузка...</p>
             ) : (activeTab === 'current' ? currentSurebets : settledSurebets).length === 0 ? (
               <p className="text-gray-500">
