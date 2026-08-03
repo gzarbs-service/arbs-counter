@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Account } from '@/lib/types'
+import { Account, Profile } from '@/lib/types'
 import ComboboxInput from './combobox-input'
 
 const BOOKMAKERS = ['Fezbet', 'N1bet', 'Stonevegas', 'Pinnacle', 'Bookmaker.xyz']
@@ -11,17 +11,22 @@ interface AccountsPanelProps {
   initialAccounts: Account[]
   onChange: (accounts: Account[]) => void
   embedded?: boolean
+  isAdmin?: boolean
+  workers?: Profile[]
 }
 
-export default function AccountsPanel({ initialAccounts, onChange, embedded = false }: AccountsPanelProps) {
+export default function AccountsPanel({ initialAccounts, onChange, embedded = false, isAdmin = false, workers = [] }: AccountsPanelProps) {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts)
   const [bookmaker, setBookmaker] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
   const [login, setLogin] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [ownerId, setOwnerId] = useState('')
+  const [reassigning, setReassigning] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
+  const workerName = (id: string) => workers.find((w) => w.id === id)?.username || 'Неизвестно'
 
   const refreshAccounts = useCallback(async () => {
     const { data, error } = await supabase.from('accounts').select('*').order('created_at', { ascending: false })
@@ -35,6 +40,10 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!bookmaker.trim() || !accountNumber.trim()) return
+    if (isAdmin && !ownerId) {
+      alert('Выберите оператора, за которым закрепить аккаунт')
+      return
+    }
 
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
@@ -44,7 +53,7 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
     }
 
     const { error } = await supabase.from('accounts').insert({
-      user_id: user.id,
+      user_id: isAdmin ? ownerId : user.id,
       bookmaker: bookmaker.trim(),
       account_number: accountNumber.trim(),
       login: login.trim() || null,
@@ -64,6 +73,7 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
     setLogin('')
     setEmail('')
     setPassword('')
+    setOwnerId('')
     await refreshAccounts()
     setLoading(false)
   }
@@ -78,13 +88,44 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
     await refreshAccounts()
   }
 
+  const handleReassign = async (id: string) => {
+    const newOwnerId = reassigning[id]
+    if (!newOwnerId) return
+    const { error } = await supabase.from('accounts').update({ user_id: newOwnerId }).eq('id', id)
+    if (error) {
+      alert('Ошибка переназначения: ' + error.message)
+      return
+    }
+    setReassigning((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+    await refreshAccounts()
+  }
+
   const inputClass = 'w-full px-3 py-2 rounded-lg input-dark text-sm'
 
   const content = (
     <>
       {!embedded && <h2 className="text-xl font-semibold text-cyan-400">Аккаунты в игре</h2>}
 
+      {isAdmin && (
       <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Оператор</label>
+          <select
+            value={ownerId}
+            onChange={(e) => setOwnerId(e.target.value)}
+            className={inputClass}
+            required
+          >
+            <option value="">Выберите оператора</option>
+            {workers.map((w) => (
+              <option key={w.id} value={w.id}>{w.username}</option>
+            ))}
+          </select>
+        </div>
         <ComboboxInput
           id="account-bookmaker-list"
           label="Букмекер"
@@ -142,6 +183,7 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
           {loading ? 'Добавляем...' : '+ Добавить аккаунт'}
         </button>
       </form>
+      )}
 
       <div className="space-y-2">
         {accounts.length === 0 ? (
@@ -158,19 +200,24 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
                 </span>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-500 group-open:hidden">Подробнее</span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      handleDelete(acc.id)
-                    }}
-                    className="text-xs text-red-400 hover:text-red-300 transition"
-                  >
-                    Удалить
-                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleDelete(acc.id)
+                      }}
+                      className="text-xs text-red-400 hover:text-red-300 transition"
+                    >
+                      Удалить
+                    </button>
+                  )}
                 </div>
               </summary>
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-400">
+                <div>
+                  Оператор: <span className="text-white">{isAdmin ? workerName(acc.user_id) : ''}</span>
+                </div>
                 {acc.login && (
                   <div>
                     Логин: <span className="text-white">{acc.login}</span>
@@ -187,6 +234,27 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
                   </div>
                 )}
               </div>
+              {isAdmin && (
+                <div className="mt-3 flex items-center gap-2">
+                  <select
+                    value={reassigning[acc.id] ?? acc.user_id}
+                    onChange={(e) => setReassigning((prev) => ({ ...prev, [acc.id]: e.target.value }))}
+                    className={inputClass}
+                  >
+                    {workers.map((w) => (
+                      <option key={w.id} value={w.id}>{w.username}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleReassign(acc.id)}
+                    disabled={!reassigning[acc.id] || reassigning[acc.id] === acc.user_id}
+                    className="px-3 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-xs font-medium text-cyan-300 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    Закрепить
+                  </button>
+                </div>
+              )}
             </details>
           ))
         )}

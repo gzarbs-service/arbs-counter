@@ -95,12 +95,14 @@ export default function DashboardApp({
             <div className="flex items-center gap-3 flex-wrap">
               <CurrencySelect />
               {isAdmin && <NotificationBell />}
-              <button
-                onClick={() => setShowAccounts(true)}
-                className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium"
-              >
-                Аккаунты
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAccounts(true)}
+                  className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium"
+                >
+                  Аккаунты
+                </button>
+              )}
               <button
                 onClick={() => setShowAccountStats(true)}
                 className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium"
@@ -217,6 +219,8 @@ export default function DashboardApp({
           initialAccounts={accounts}
           onChange={setAccounts}
           embedded
+          isAdmin={isAdmin}
+          workers={initialProfiles.filter((p) => p.role === 'worker')}
         />
       </Modal>
 
