@@ -3,10 +3,11 @@
 import { useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { calculateExpectedProfitFromStakes, calculateROI, formatMoney, formatDate } from '@/lib/calc'
+import { buildCommentWithAutoErrors } from '@/lib/worker-stats'
 import { SPORTS, MARKETS } from '@/lib/constants'
 import ComboboxInput from './combobox-input'
 import AccountSelect from './account-select'
-import { Account } from '@/lib/types'
+import { Account, Leg, SurebetWithLegs } from '@/lib/types'
 import { useCurrency } from './currency-context'
 
 
@@ -208,6 +209,28 @@ export default function SurebetForm({ accounts, isAdmin, onCreated }: SurebetFor
       alert('Ошибка добавления плеч: ' + legsError.message)
       setLoading(false)
       return
+    }
+
+    const insertedLegs: Leg[] = legs.map((leg, idx) => ({
+      id: `pending-${idx}`,
+      surebet_id: surebet.id,
+      account: leg.account.trim(),
+      bookmaker: leg.bookmaker.trim(),
+      market: leg.market.trim(),
+      odds: odds[idx],
+      stake: stakes[idx],
+      status: 'pending',
+      created_at: surebet.created_at,
+    }))
+    const autoComment = buildCommentWithAutoErrors({ ...surebet, legs: insertedLegs } as SurebetWithLegs)
+    if (autoComment !== (surebet.comment || '')) {
+      const { error: commentError } = await supabase
+        .from('surebets')
+        .update({ comment: autoComment })
+        .eq('id', surebet.id)
+      if (!commentError) {
+        surebet.comment = autoComment
+      }
     }
 
     const sheetRows = legs.map((leg) => ({

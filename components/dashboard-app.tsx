@@ -198,7 +198,13 @@ export default function DashboardApp({
 
       {isAdmin && (
         <Modal isOpen={showAdmin} onClose={() => setShowAdmin(false)} title="Панель администратора">
-          <AdminSection initialUsers={initialProfiles} surebets={surebets} accounts={accounts} onUpdate={fetchSurebets} />
+          <AdminSection
+            initialUsers={initialProfiles}
+            surebets={surebets}
+            accounts={accounts}
+            onUpdate={fetchSurebets}
+            currentUsername={profile?.username}
+          />
         </Modal>
       )}
 

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Account, Leg, SurebetWithLegs } from '@/lib/types'
 import { calculateSurebetProfit, calculateROI, calculateLegProfit, calculateLegPayout, calculatePotentialProfitRange, hasPendingLegs, formatMoney, formatDate } from '@/lib/calc'
+import { buildCommentWithAutoErrors, stripAutoErrorComment } from '@/lib/worker-stats'
 import { SPORTS, MARKETS } from '@/lib/constants'
 import { useCurrency } from './currency-context'
 import ComboboxInput from './combobox-input'
@@ -73,7 +74,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
   const { currency } = useCurrency()
   const [draftStatuses, setDraftStatuses] = useState<Record<string, Leg['status']>>({})
   const [isEditing, setIsEditing] = useState(false)
-  const [draft, setDraft] = useState({ matchName: surebet.match_name, sport: surebet.sport, comment: surebet.comment || '' })
+  const [draft, setDraft] = useState({ matchName: surebet.match_name, sport: surebet.sport, comment: stripAutoErrorComment(surebet.comment || '') })
   const [draftLegs, setDraftLegs] = useState<DraftLeg[]>(() => surebet.legs?.map((leg) => ({ ...leg, isNew: false })) || [])
   const [removedLegIds, setRemovedLegIds] = useState<Set<string>>(new Set())
   const [savingEdit, setSavingEdit] = useState(false)
@@ -151,7 +152,19 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       }
     }
 
-    syncToSheets(surebet.id, buildSyncPayload(updatedLegs, undefined, undefined, settledAt || ''))
+    let currentComment = surebet.comment || ''
+    const autoComment = buildCommentWithAutoErrors({ ...surebet, legs: updatedLegs })
+    if (autoComment !== currentComment) {
+      const { error: commentError } = await supabaseClient
+        .from('surebets')
+        .update({ comment: autoComment })
+        .eq('id', surebet.id)
+      if (!commentError) {
+        currentComment = autoComment
+      }
+    }
+
+    syncToSheets(surebet.id, buildSyncPayload(updatedLegs, undefined, currentComment, settledAt || ''))
 
     setDraftStatuses({})
     onUpdate()
@@ -176,7 +189,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
   }
 
   const startEdit = () => {
-    setDraft({ matchName: surebet.match_name, sport: surebet.sport, comment: surebet.comment || '' })
+    setDraft({ matchName: surebet.match_name, sport: surebet.sport, comment: stripAutoErrorComment(surebet.comment || '') })
     setDraftLegs(surebet.legs?.map((leg) => ({ ...leg, isNew: false })) || [])
     setRemovedLegIds(new Set())
     setIsEditing(true)
@@ -184,7 +197,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
 
   const cancelEdit = () => {
     setIsEditing(false)
-    setDraft({ matchName: surebet.match_name, sport: surebet.sport, comment: surebet.comment || '' })
+    setDraft({ matchName: surebet.match_name, sport: surebet.sport, comment: stripAutoErrorComment(surebet.comment || '') })
     setDraftLegs(surebet.legs?.map((leg) => ({ ...leg, isNew: false })) || [])
     setRemovedLegIds(new Set())
   }
@@ -243,9 +256,22 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
     const totalStake = draftLegs.reduce((sum, leg) => sum + Number(leg.stake), 0)
     const bank = Number(totalStake.toFixed(2))
 
+    const finalLegsForCheck = draftLegs.filter((leg) => !removedLegIds.has(leg.id)).map((leg) => ({
+      ...leg,
+      odds: Number(leg.odds),
+      stake: Number(leg.stake),
+    })) as Leg[]
+    const autoComment = buildCommentWithAutoErrors({
+      ...surebet,
+      match_name: matchName,
+      sport,
+      comment: draft.comment.trim(),
+      legs: finalLegsForCheck,
+    })
+
     const { error: sbError } = await supabaseClient
       .from('surebets')
-      .update({ match_name: matchName, sport, comment: draft.comment.trim(), bank })
+      .update({ match_name: matchName, sport, comment: autoComment, bank })
       .eq('id', surebet.id)
     if (sbError) {
       alert('Ошибка обновления вилки: ' + sbError.message)
@@ -294,11 +320,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       }
     }
 
-    const finalLegs = draftLegs.filter((leg) => !removedLegIds.has(leg.id)).map((leg) => ({
-      ...leg,
-      odds: Number(leg.odds),
-      stake: Number(leg.stake),
-    })) as Leg[]
+    const finalLegs = finalLegsForCheck
 
     const allSettled = finalLegs.length > 0 && finalLegs.every((leg) => leg.status !== 'pending')
     let settledAt = surebet.settled_at
@@ -310,7 +332,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       }
     }
 
-    syncToSheets(surebet.id, buildSyncPayload(finalLegs, sport, draft.comment.trim(), settledAt || ''))
+    syncToSheets(surebet.id, buildSyncPayload(finalLegs, sport, autoComment, settledAt || ''))
 
     setSavingEdit(false)
     setIsEditing(false)

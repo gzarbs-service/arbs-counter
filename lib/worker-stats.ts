@@ -37,6 +37,26 @@ export interface WorkerStat {
 
 const ERROR_TOLERANCE = 0.05
 
+// Marker used to separate the worker's own comment from the auto-detected
+// error diagnostics appended after it. Kept as a single exported constant so
+// every read/write site stays in sync.
+export const AUTO_ERROR_TAG = '[Авто]'
+const AUTO_ERROR_SEPARATOR = ' / '
+
+/**
+ * Strips a previously appended auto-error block from a comment, returning
+ * only the part the worker/admin actually typed themselves.
+ */
+export function stripAutoErrorComment(comment: string): string {
+  const idx = comment.indexOf(AUTO_ERROR_TAG)
+  if (idx === -1) return comment.trim()
+  let base = comment.slice(0, idx)
+  if (base.endsWith(AUTO_ERROR_SEPARATOR)) {
+    base = base.slice(0, -AUTO_ERROR_SEPARATOR.length)
+  }
+  return base.trim()
+}
+
 /**
  * Returns the list of reasons a surebet is flagged as a likely worker error.
  * Empty array means no error detected. Possible reasons:
@@ -66,8 +86,12 @@ export function getErrorReasons(surebet: SurebetWithLegs): string[] {
     }
   }
 
-  if (surebet.comment && surebet.comment.toLowerCase().includes('ошибка')) {
-    reasons.push(`Комментарий: «${surebet.comment}»`)
+  // Only ever look at the worker's own text, never at a previously
+  // auto-appended diagnostics block, to avoid the check re-triggering on
+  // its own output.
+  const userComment = stripAutoErrorComment(surebet.comment || '')
+  if (userComment && userComment.toLowerCase().includes('ошибка')) {
+    reasons.push(`Комментарий: «${userComment}»`)
   }
 
   // The potential range model only accounts for a clean win/lose outcome per
@@ -91,6 +115,22 @@ export function getErrorReasons(surebet: SurebetWithLegs): string[] {
 
 export function isFlaggedError(surebet: SurebetWithLegs): boolean {
   return getErrorReasons(surebet).length > 0
+}
+
+/**
+ * Recomputes the comment field for a surebet so that it contains the
+ * worker's original text (untouched) plus a self-updating auto-diagnostics
+ * block listing any currently-detected error reasons. Returns the worker's
+ * original comment unchanged if there are no errors. The "Комментарий:"
+ * reason is excluded since it would just be echoing the user's own text
+ * back at them.
+ */
+export function buildCommentWithAutoErrors(surebet: SurebetWithLegs): string {
+  const baseComment = stripAutoErrorComment(surebet.comment || '')
+  const reasons = getErrorReasons(surebet).filter((r) => !r.startsWith('Комментарий:'))
+  if (reasons.length === 0) return baseComment
+  const autoText = `${AUTO_ERROR_TAG} ${reasons.join('; ')}`
+  return baseComment ? `${baseComment}${AUTO_ERROR_SEPARATOR}${autoText}` : autoText
 }
 
 function buildBreakdown(surebets: SurebetWithLegs[], groupBySport: boolean): BreakdownStat[] {
