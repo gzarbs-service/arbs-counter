@@ -6,6 +6,7 @@ import { Account, Leg, SurebetWithLegs } from '@/lib/types'
 import { calculateSurebetProfit, calculateROI, calculateLegProfit, calculateLegPayout, calculatePotentialProfitRange, hasPendingLegs, formatMoney, formatDate } from '@/lib/calc'
 import { buildCommentWithAutoErrors, getErrorReasons, stripAutoErrorComment } from '@/lib/worker-stats'
 import { notifyError } from '@/lib/notify-error'
+import { operatorBadgeColor } from '@/lib/operator-badge'
 import { SPORTS, MARKETS } from '@/lib/constants'
 import { useCurrency } from './currency-context'
 import ComboboxInput from './combobox-input'
@@ -415,9 +416,13 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
           ) : (
             <div>
               <h3 className="text-lg font-semibold text-white">{surebet.match_name}</h3>
-              <p className="text-sm text-gray-400">
-                {surebet.sport} · {formatDate(surebet.created_at)}
-                {isAdmin && username && ` · ${username}`}
+              <p className="text-sm text-gray-400 flex items-center gap-2 flex-wrap">
+                <span>{surebet.sport} · {formatDate(surebet.created_at)}</span>
+                {isAdmin && username && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${operatorBadgeColor(surebet.user_id)}`}>
+                    {username}
+                  </span>
+                )}
               </p>
             </div>
           )}
