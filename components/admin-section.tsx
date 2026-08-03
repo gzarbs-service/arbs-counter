@@ -1,16 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Account, Profile, SurebetWithLegs } from '@/lib/types'
 import { calculateLegProfit, formatDate } from '@/lib/calc'
 import { buildCommentWithAutoErrors } from '@/lib/worker-stats'
+import { fetchWindowedSurebets, periodSinceIso, PERIOD_LABELS, SurebetWindowPeriod } from '@/lib/surebets-window'
 import AdminPanel from './admin-panel'
 import WorkerStatsPanel from './worker-stats-panel'
 
 interface AdminSectionProps {
   initialUsers: Profile[]
-  surebets: SurebetWithLegs[]
   accounts?: Account[]
   onUpdate?: () => void
   currentUsername?: string
@@ -34,11 +34,39 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export default function AdminSection({ initialUsers, surebets, accounts, onUpdate, currentUsername }: AdminSectionProps) {
+export default function AdminSection({ initialUsers, accounts, onUpdate, currentUsername }: AdminSectionProps) {
   const [tab, setTab] = useState<Tab>('users')
   const [backfill, setBackfill] = useState<BackfillState | null>(null)
   const supabase = createClient()
   const canBackfill = currentUsername === BACKFILL_ALLOWED_USERNAME
+
+  // Admin/worker stats are always computed from a fully independent fetch
+  // (default: entire history), rather than the windowed data used by the
+  // regular dashboard/journal - so error counts and totals stay accurate
+  // regardless of whatever period the dashboard happens to be showing.
+  const [statsSurebets, setStatsSurebets] = useState<SurebetWithLegs[]>([])
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [statsPeriod, setStatsPeriod] = useState<SurebetWindowPeriod>('all')
+
+  const loadStats = useCallback(async (period: SurebetWindowPeriod) => {
+    setStatsLoading(true)
+    const { data } = await fetchWindowedSurebets(supabase, {
+      isAdmin: true,
+      sinceIso: periodSinceIso(period),
+    })
+    setStatsSurebets(data)
+    setStatsLoading(false)
+  }, [supabase])
+
+  useEffect(() => {
+    loadStats(statsPeriod)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const changeStatsPeriod = (period: SurebetWindowPeriod) => {
+    setStatsPeriod(period)
+    loadStats(period)
+  }
 
   const runBackfill = async () => {
     if (backfill?.running) return
@@ -50,12 +78,24 @@ export default function AdminSection({ initialUsers, surebets, accounts, onUpdat
       return
     }
 
-    setBackfill({ running: true, done: 0, total: surebets.length, updated: 0, syncFailed: 0 })
+    // Backfill always operates on the FULL history, independent of whatever
+    // period is currently selected for display, so it can never accidentally
+    // "fix" only a recent subset of surebets.
+    const { data: allSurebets, error: loadError } = await fetchWindowedSurebets(supabase, {
+      isAdmin: true,
+      sinceIso: null,
+    })
+    if (loadError) {
+      alert('Ошибка загрузки вилок: ' + loadError)
+      return
+    }
+
+    setBackfill({ running: true, done: 0, total: allSurebets.length, updated: 0, syncFailed: 0 })
     let updated = 0
     let syncFailed = 0
 
-    for (let i = 0; i < surebets.length; i++) {
-      const s = surebets[i]
+    for (let i = 0; i < allSurebets.length; i++) {
+      const s = allSurebets[i]
       const newComment = buildCommentWithAutoErrors(s)
       const commentChanged = newComment !== (s.comment || '')
 
@@ -98,11 +138,17 @@ export default function AdminSection({ initialUsers, surebets, accounts, onUpdat
       }
       await delay(400)
 
-      setBackfill({ running: true, done: i + 1, total: surebets.length, updated, syncFailed })
+      setBackfill({ running: true, done: i + 1, total: allSurebets.length, updated, syncFailed })
     }
 
-    setBackfill({ running: false, done: surebets.length, total: surebets.length, updated, syncFailed })
+    setBackfill({ running: false, done: allSurebets.length, total: allSurebets.length, updated, syncFailed })
     onUpdate?.()
+    loadStats(statsPeriod)
+  }
+
+  const handleStatsUpdate = () => {
+    onUpdate?.()
+    loadStats(statsPeriod)
   }
 
   return (
@@ -155,7 +201,30 @@ export default function AdminSection({ initialUsers, surebets, accounts, onUpdat
       {tab === 'users' ? (
         <AdminPanel initialUsers={initialUsers} embedded />
       ) : (
-        <WorkerStatsPanel profiles={initialUsers} surebets={surebets} accounts={accounts} onUpdate={onUpdate} />
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400">Период статистики:</span>
+            {(['week', 'twoWeeks', 'month', 'all'] as SurebetWindowPeriod[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => changeStatsPeriod(p)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  statsPeriod === p
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                    : 'glass text-gray-400 hover:border-purple-400/40'
+                }`}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          {statsLoading ? (
+            <p className="text-sm text-gray-400">Загрузка...</p>
+          ) : (
+            <WorkerStatsPanel profiles={initialUsers} surebets={statsSurebets} accounts={accounts} onUpdate={handleStatsUpdate} />
+          )}
+        </div>
       )}
     </div>
   )

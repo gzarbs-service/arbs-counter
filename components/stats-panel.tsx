@@ -2,9 +2,10 @@
 
 import { SurebetWithLegs } from '@/lib/types'
 import { calculateSurebetProfit, calculateROI, formatMoney } from '@/lib/calc'
+import { PERIOD_LABELS, SurebetWindowPeriod } from '@/lib/surebets-window'
 import { useCurrency } from './currency-context'
 
-export default function StatsPanel({ surebets }: { surebets: SurebetWithLegs[] }) {
+export default function StatsPanel({ surebets, period }: { surebets: SurebetWithLegs[]; period?: SurebetWindowPeriod }) {
   const { currency } = useCurrency()
 
   const totalSurebets = surebets.length
@@ -15,10 +16,14 @@ export default function StatsPanel({ surebets }: { surebets: SurebetWithLegs[] }
     ? surebets.reduce((sum, s) => sum + calculateROI(calculateSurebetProfit(s), Number(s.bank)), 0) / totalSurebets
     : 0
 
+  // Cards reflect only the currently loaded period (see the period selector
+  // above), so the label makes that explicit instead of implying "all-time"
+  // totals when only a window of data was actually loaded.
+  const suffix = period ? ` (${PERIOD_LABELS[period]})` : ''
   const cards = [
-    { label: 'Всего вилок', value: totalSurebets.toString() },
-    { label: 'Оборот', value: formatMoney(turnover, currency) },
-    { label: 'Прибыль', value: formatMoney(netProfit, currency), positive: netProfit >= 0 },
+    { label: `Вилок${suffix}`, value: totalSurebets.toString() },
+    { label: `Оборот${suffix}`, value: formatMoney(turnover, currency) },
+    { label: `Прибыль${suffix}`, value: formatMoney(netProfit, currency), positive: netProfit >= 0 },
     { label: 'ROI', value: `${roi.toFixed(2)}%` },
     { label: 'Средний ROI', value: `${avgRoi.toFixed(2)}%` },
   ]

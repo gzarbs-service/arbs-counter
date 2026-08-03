@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Account, Profile, SurebetWithLegs } from '@/lib/types'
 import { useSurebetJournal } from '@/lib/use-surebet-journal'
 import { hasPendingLegs } from '@/lib/calc'
+import { PERIOD_LABELS, SurebetWindowPeriod } from '@/lib/surebets-window'
 import { CurrencyProvider } from './currency-context'
 import SurebetCard from './surebet-card'
 import FiltersPanel from './filters-panel'
@@ -47,6 +48,8 @@ export default function JournalPage({
     bookmakerOptions,
     sportOptions,
     workerOptions,
+    period,
+    setPeriod,
   } = useSurebetJournal({
     initialSurebets,
     initialUsernames,
@@ -86,7 +89,7 @@ export default function JournalPage({
             <div className="flex items-center gap-3 flex-wrap">
               <CurrencySelect />
               <button
-                onClick={fetchSurebets}
+                onClick={() => fetchSurebets()}
                 className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium"
               >
                 Обновить
@@ -113,6 +116,27 @@ export default function JournalPage({
                 : `Рассчитанных вилок: ${settledSurebets.length}`}
             </p>
             <CsvExport surebets={activeTab === 'current' ? currentSurebets : settledSurebets} usernames={usernames} filename={activeTab === 'current' ? 'current-surebets' : 'settled-surebets'} />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400">Период:</span>
+            {(['week', 'twoWeeks', 'month', 'all'] as SurebetWindowPeriod[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  period === p
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                    : 'glass text-gray-400 hover:border-cyan-400/40'
+                }`}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
+            <span className="text-xs text-gray-500">
+              (незакрытые вилки видны всегда, независимо от периода)
+            </span>
           </div>
 
           <FiltersPanel

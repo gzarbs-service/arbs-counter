@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Account, Profile, SurebetWithLegs } from '@/lib/types'
 import { Filters } from '@/components/filters-panel'
+import { hasPendingLegs } from '@/lib/calc'
+import { fetchWindowedSurebets, periodSinceIso, SurebetWindowPeriod } from '@/lib/surebets-window'
 
 const SEARCH_DEBOUNCE_MS = 300
 // Supabase's `.or()` filter syntax uses commas and parentheses as
@@ -34,6 +36,10 @@ export function useSurebetJournal({
   const [usernames, setUsernames] = useState<Record<string, string>>(initialUsernames)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // Default window is the last 7 days; surebets with a still-pending leg are
+  // always included by fetchWindowedSurebets regardless of this setting, so
+  // nothing unresolved is ever hidden just because it's old.
+  const [period, setPeriodState] = useState<SurebetWindowPeriod>('week')
   const [filters, setFilters] = useState<Filters>({
     worker: '',
     bookmaker: '',
@@ -44,7 +50,8 @@ export function useSurebetJournal({
     search: '',
   })
 
-  const fetchSurebets = useCallback(async () => {
+  const fetchSurebets = useCallback(async (overridePeriod?: SurebetWindowPeriod) => {
+    const effectivePeriod = overridePeriod ?? period
     setLoading(true)
     setError('')
 
@@ -54,23 +61,18 @@ export function useSurebetJournal({
       userId = user?.id || null
     }
 
-    let builder = supabase
-      .from('surebets')
-      .select('*, legs(*)')
-      .order('created_at', { ascending: false })
+    const { data: surebetsData, error: fetchError } = await fetchWindowedSurebets(supabase, {
+      isAdmin,
+      userId,
+      sinceIso: periodSinceIso(effectivePeriod),
+    })
 
-    if (!isAdmin && userId) {
-      builder = builder.eq('user_id', userId)
-    }
-
-    const { data, error: sbError } = await builder
-    if (sbError) {
-      setError('Ошибка загрузки вилок: ' + sbError.message)
+    if (fetchError) {
+      setError('Ошибка загрузки вилок: ' + fetchError)
       setLoading(false)
       return
     }
 
-    const surebetsData = (data as unknown as SurebetWithLegs[]) || []
     setSurebets(surebetsData)
 
     if (isAdmin) {
@@ -85,7 +87,28 @@ export function useSurebetJournal({
     }
 
     setLoading(false)
-  }, [isAdmin, supabase])
+  }, [isAdmin, supabase, period])
+
+  const setPeriod = useCallback(
+    (next: SurebetWindowPeriod) => {
+      setPeriodState(next)
+      fetchSurebets(next)
+    },
+    [fetchSurebets]
+  )
+
+  // If the worker picks a custom "from" date older than the currently loaded
+  // window, automatically widen to 'all' so the date filter never silently
+  // filters against data that was never loaded in the first place.
+  useEffect(() => {
+    if (!filters.dateFrom || period === 'all') return
+    const requested = new Date(filters.dateFrom)
+    const currentSince = periodSinceIso(period)
+    if (currentSince && requested < new Date(currentSince)) {
+      setPeriod('all')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.dateFrom])
 
   // Free-text search is debounced and executed against Supabase directly
   // (rather than filtering the already-loaded `surebets` array in memory),
@@ -171,7 +194,13 @@ export function useSurebetJournal({
     return source.filter((s) => {
       if (filters.worker && s.user_id !== filters.worker) return false
       if (filters.sport && s.sport !== filters.sport) return false
-      if (filters.status && s.status !== filters.status) return false
+      if (filters.status) {
+        // surebets.status is never updated after creation; whether a bet is
+        // still "in play" is derived from its legs' actual statuses instead.
+        const pending = hasPendingLegs(s)
+        if (filters.status === 'pending' && !pending) return false
+        if (filters.status === 'settled' && pending) return false
+      }
       if (filters.bookmaker && !s.legs.some((l) => l.bookmaker === filters.bookmaker)) return false
       if (filters.dateFrom) {
         const from = new Date(filters.dateFrom)
@@ -216,5 +245,7 @@ export function useSurebetJournal({
     bookmakerOptions,
     sportOptions,
     workerOptions,
+    period,
+    setPeriod,
   }
 }

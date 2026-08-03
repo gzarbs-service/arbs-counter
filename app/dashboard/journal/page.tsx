@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import JournalPage from '@/components/journal-page'
 import { Account, Profile, SurebetWithLegs } from '@/lib/types'
+import { fetchWindowedSurebets, periodSinceIso } from '@/lib/surebets-window'
 
 export default async function DashboardJournalPage() {
   const supabase = await createClient()
@@ -20,17 +21,14 @@ export default async function DashboardJournalPage() {
 
   const isAdmin = profile?.role === 'admin'
 
-  let surebetsQuery = supabase
-    .from('surebets')
-    .select('*, legs(*)')
-    .order('created_at', { ascending: false })
-
-  if (!isAdmin) {
-    surebetsQuery = surebetsQuery.eq('user_id', user.id)
-  }
-
-  const { data: surebetsData } = await surebetsQuery
-  const initialSurebets = (surebetsData as unknown as SurebetWithLegs[]) || []
+  // Only load the last 7 days by default (plus any still-pending bet
+  // regardless of age) to keep the initial page load light as history grows.
+  const { data: initialSurebetsData } = await fetchWindowedSurebets(supabase, {
+    isAdmin,
+    userId: user.id,
+    sinceIso: periodSinceIso('week'),
+  })
+  const initialSurebets: SurebetWithLegs[] = initialSurebetsData
 
   const { data: accountsData } = await supabase
     .from('accounts')
