@@ -1,9 +1,17 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Account, Profile, SurebetWithLegs } from '@/lib/types'
 import { Filters } from '@/components/filters-panel'
+
+const SEARCH_DEBOUNCE_MS = 300
+// Supabase's `.or()` filter syntax uses commas and parentheses as
+// structural characters, so they're stripped from free-text search input
+// to avoid breaking the generated filter expression.
+function sanitizeSearchTerm(value: string): string {
+  return value.replace(/[,()%]/g, ' ').trim()
+}
 
 interface UseSurebetJournalArgs {
   initialSurebets: SurebetWithLegs[]
@@ -79,8 +87,88 @@ export function useSurebetJournal({
     setLoading(false)
   }, [isAdmin, supabase])
 
+  // Free-text search is debounced and executed against Supabase directly
+  // (rather than filtering the already-loaded `surebets` array in memory),
+  // so it keeps working correctly once the journal starts loading only a
+  // recent window of data instead of the entire history.
+  const [searchResults, setSearchResults] = useState<SurebetWithLegs[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const searchRequestId = useRef(0)
+
+  useEffect(() => {
+    const term = sanitizeSearchTerm(filters.search)
+    if (!term) {
+      setSearchResults(null)
+      setSearching(false)
+      return
+    }
+
+    const requestId = ++searchRequestId.current
+    const handle = setTimeout(async () => {
+      setSearching(true)
+
+      let matchingUserIds: string[] = []
+      if (isAdmin) {
+        const { data: matchedProfiles } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('username', `%${term}%`)
+        matchingUserIds = (matchedProfiles || []).map((p: { id: string }) => p.id)
+      }
+
+      const { data: matchedLegs } = await supabase
+        .from('legs')
+        .select('surebet_id')
+        .or(`bookmaker.ilike.%${term}%,market.ilike.%${term}%,account.ilike.%${term}%`)
+        .limit(500)
+      const legSurebetIds = Array.from(
+        new Set((matchedLegs || []).map((l: { surebet_id: string }) => l.surebet_id))
+      )
+
+      const orParts = [
+        `match_name.ilike.%${term}%`,
+        `sport.ilike.%${term}%`,
+        `comment.ilike.%${term}%`,
+      ]
+      if (matchingUserIds.length > 0) {
+        orParts.push(`user_id.in.(${matchingUserIds.join(',')})`)
+      }
+      if (legSurebetIds.length > 0) {
+        orParts.push(`id.in.(${legSurebetIds.join(',')})`)
+      }
+
+      let builder = supabase
+        .from('surebets')
+        .select('*, legs(*)')
+        .order('created_at', { ascending: false })
+        .limit(200)
+        .or(orParts.join(','))
+
+      if (!isAdmin) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) builder = builder.eq('user_id', user.id)
+      }
+
+      const { data, error: searchError } = await builder
+
+      // Ignore stale responses if the user kept typing.
+      if (requestId !== searchRequestId.current) return
+
+      if (searchError) {
+        setError('Ошибка поиска: ' + searchError.message)
+        setSearchResults([])
+      } else {
+        setSearchResults((data as unknown as SurebetWithLegs[]) || [])
+      }
+      setSearching(false)
+    }, SEARCH_DEBOUNCE_MS)
+
+    return () => clearTimeout(handle)
+  }, [filters.search, isAdmin, supabase])
+
   const filteredSurebets = useMemo(() => {
-    return surebets.filter((s) => {
+    const source = searchResults ?? surebets
+    return source.filter((s) => {
       if (filters.worker && s.user_id !== filters.worker) return false
       if (filters.sport && s.sport !== filters.sport) return false
       if (filters.status && s.status !== filters.status) return false
@@ -93,23 +181,9 @@ export function useSurebetJournal({
         const to = new Date(filters.dateTo + 'T23:59:59.999Z')
         if (new Date(s.created_at) > to) return false
       }
-      if (filters.search) {
-        const q = filters.search.toLowerCase()
-        const haystack = [
-          s.match_name,
-          s.sport,
-          s.comment,
-          usernames[s.user_id],
-          ...s.legs.flatMap((l) => [l.bookmaker, l.market, l.account]),
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-        if (!haystack.includes(q)) return false
-      }
       return true
     })
-  }, [surebets, filters])
+  }, [surebets, searchResults, filters])
 
   const bookmakerOptions = useMemo(() => {
     const set = new Set<string>()
@@ -133,6 +207,7 @@ export function useSurebetJournal({
     setSurebets,
     usernames,
     loading,
+    searching,
     error,
     filters,
     setFilters,

@@ -44,6 +44,7 @@ export default function DashboardApp({
   const {
     usernames,
     loading,
+    searching,
     error,
     filters,
     setFilters,
@@ -155,6 +156,7 @@ export default function DashboardApp({
             placeholder="Поиск по матчу, рынку, конторе, счёту..."
             className="w-full px-3 py-2 rounded-lg input-dark text-sm"
           />
+          {searching && <p className="text-xs text-gray-500">Поиск...</p>}
           {loading ? (
             <p className="text-gray-400">Загрузка...</p>
           ) : filteredSurebets.length === 0 ? (

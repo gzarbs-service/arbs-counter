@@ -38,6 +38,7 @@ export default function JournalPage({
   const {
     usernames,
     loading,
+    searching,
     error,
     filters,
     setFilters,
@@ -120,6 +121,7 @@ export default function JournalPage({
             sports={sportOptions}
             onChange={setFilters}
           />
+          {searching && <p className="text-xs text-gray-500">Поиск...</p>}
 
           <div className="flex gap-2">
             <button
