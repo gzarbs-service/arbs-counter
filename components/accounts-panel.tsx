@@ -197,6 +197,9 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
               <summary className="flex items-center justify-between cursor-pointer list-none">
                 <span className="text-white">
                   {acc.bookmaker} <span className="text-gray-400">{acc.account_number}</span>
+                  {isAdmin && (
+                    <span className="ml-2 text-xs text-cyan-300">· {workerName(acc.user_id)}</span>
+                  )}
                 </span>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-500 group-open:hidden">Подробнее</span>
