@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Account, Profile } from '@/lib/types'
 import { operatorBadgeColor } from '@/lib/operator-badge'
+import { TEST_ACCOUNT_BADGE_CLASS } from '@/lib/test-account'
 import ComboboxInput from './combobox-input'
 
 const BOOKMAKERS = ['Fezbet', 'N1bet', 'Stonevegas', 'Pinnacle', 'Bookmaker.xyz']
@@ -24,6 +25,7 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [ownerId, setOwnerId] = useState('')
+  const [isTest, setIsTest] = useState(false)
   const [reassigning, setReassigning] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
@@ -61,6 +63,7 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
       email: email.trim() || null,
       password: password.trim() || null,
       is_active: true,
+      is_test: isTest,
     })
 
     if (error) {
@@ -75,8 +78,18 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
     setEmail('')
     setPassword('')
     setOwnerId('')
+    setIsTest(false)
     await refreshAccounts()
     setLoading(false)
+  }
+
+  const toggleTest = async (acc: Account) => {
+    const { error } = await supabase.from('accounts').update({ is_test: !acc.is_test }).eq('id', acc.id)
+    if (error) {
+      alert('Ошибка изменения: ' + error.message)
+      return
+    }
+    await refreshAccounts()
   }
 
   const handleDelete = async (id: string) => {
@@ -176,6 +189,15 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
             placeholder="password"
           />
         </div>
+        <label className="flex items-center gap-2 text-xs text-gray-400">
+          <input
+            type="checkbox"
+            checked={isTest}
+            onChange={(e) => setIsTest(e.target.checked)}
+            className="rounded"
+          />
+          Тестовый аккаунт
+        </label>
         <button
           type="submit"
           disabled={loading}
@@ -201,6 +223,11 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
                   {isAdmin && (
                     <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${operatorBadgeColor(acc.user_id)}`}>
                       {workerName(acc.user_id)}
+                    </span>
+                  )}
+                  {acc.is_test && (
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${TEST_ACCOUNT_BADGE_CLASS}`}>
+                      Test account
                     </span>
                   )}
                 </span>
@@ -258,6 +285,13 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
                     className="px-3 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-xs font-medium text-cyan-300 disabled:opacity-50 whitespace-nowrap"
                   >
                     Закрепить
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleTest(acc)}
+                    className="px-3 py-2 rounded-lg glass hover:border-yellow-600/40 transition text-xs font-medium text-yellow-300 whitespace-nowrap"
+                  >
+                    {acc.is_test ? 'Снять "Test account"' : 'Пометить как Test account'}
                   </button>
                 </div>
               )}

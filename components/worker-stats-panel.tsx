@@ -131,7 +131,7 @@ export default function WorkerStatsPanel({ profiles, surebets, accounts, onUpdat
   const currencyCode = currency as 'EUR' | 'USD'
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  const stats = useMemo(() => computeWorkerStats(profiles, surebets), [profiles, surebets])
+  const stats = useMemo(() => computeWorkerStats(profiles, surebets, accounts), [profiles, surebets, accounts])
 
   const sorted = useMemo(() => [...stats].sort((a, b) => b.profit - a.profit), [stats])
 

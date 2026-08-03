@@ -1,5 +1,6 @@
-import { Profile, SurebetWithLegs } from './types'
+import { Account, Profile, SurebetWithLegs } from './types'
 import { calculateLegProfit, calculateSurebetProfit, calculatePotentialProfitRange, calculateROI, hasPendingLegs } from './calc'
+import { isTestSurebet } from './test-account'
 
 export interface BreakdownStat {
   label: string
@@ -169,13 +170,17 @@ function buildBreakdown(surebets: SurebetWithLegs[], groupBySport: boolean): Bre
     .sort((a, b) => b.turnover - a.turnover)
 }
 
-export function computeWorkerStats(profiles: Profile[], surebets: SurebetWithLegs[]): WorkerStat[] {
+export function computeWorkerStats(profiles: Profile[], surebets: SurebetWithLegs[], accounts: Account[] = []): WorkerStat[] {
   const now = Date.now()
   const day7 = now - 7 * 24 * 60 * 60 * 1000
   const day30 = now - 30 * 24 * 60 * 60 * 1000
 
+  // Test-account surebets are tracked separately and never count toward
+  // real profit/ROI/error stats.
+  const realSurebets = surebets.filter((s) => !isTestSurebet(s, accounts))
+
   return profiles.filter((p) => p.role === 'worker').map((profile) => {
-    const own = surebets.filter((s) => s.user_id === profile.id)
+    const own = realSurebets.filter((s) => s.user_id === profile.id)
 
     const turnover = own.reduce((sum, s) => sum + Number(s.bank), 0)
     const profit = own.reduce((sum, s) => sum + calculateSurebetProfit(s), 0)

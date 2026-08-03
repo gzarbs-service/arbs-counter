@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { calculateExpectedProfitFromStakes, calculateROI, formatMoney, formatDate } from '@/lib/calc'
 import { buildCommentWithAutoErrors, getErrorReasons } from '@/lib/worker-stats'
 import { notifyError } from '@/lib/notify-error'
+import { isTestSurebet } from '@/lib/test-account'
 import { SPORTS, MARKETS } from '@/lib/constants'
 import ComboboxInput from './combobox-input'
 import AccountSelect from './account-select'
@@ -270,7 +271,12 @@ export default function SurebetForm({ accounts, isAdmin, onCreated }: SurebetFor
     fetch('/api/sheets-sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'sync', surebetId: surebet.id, rows: sheetRows }),
+      body: JSON.stringify({
+        action: 'sync',
+        surebetId: surebet.id,
+        isTest: isTestSurebet(finalSurebet, accounts),
+        rows: sheetRows,
+      }),
     }).catch(() => {
       // Silently ignore sync errors so it never blocks the main workflow.
     })

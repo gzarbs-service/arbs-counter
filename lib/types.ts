@@ -16,6 +16,7 @@ export interface Account {
   email?: string | null
   password?: string | null
   is_active: boolean
+  is_test: boolean
   created_at: string
 }
 

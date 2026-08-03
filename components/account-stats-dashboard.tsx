@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { Account, SurebetWithLegs } from '@/lib/types'
 import { calculateLegProfit, calculatePotentialProfitRange, formatMoney, calculateROI } from '@/lib/calc'
+import { isTestSurebet } from '@/lib/test-account'
 import { useCurrency } from './currency-context'
 
 interface AccountStatsDashboardProps {
@@ -29,10 +30,13 @@ interface AccountStat {
 export default function AccountStatsDashboard({ accounts, surebets, embedded = false }: AccountStatsDashboardProps) {
   const { currency } = useCurrency()
 
-  const stats = useMemo<AccountStat[]>(() => {
-    const allLegs = surebets.flatMap((s) => s.legs)
+  const realAccounts = useMemo(() => accounts.filter((a) => !a.is_test), [accounts])
 
-    return accounts.map((acc) => {
+  const stats = useMemo<AccountStat[]>(() => {
+    const realSurebets = surebets.filter((s) => !isTestSurebet(s, accounts))
+    const allLegs = realSurebets.flatMap((s) => s.legs)
+
+    return realAccounts.map((acc) => {
       const legs = allLegs.filter(
         (l) => l.account === acc.account_number && l.bookmaker === acc.bookmaker
       )
@@ -41,7 +45,7 @@ export default function AccountStatsDashboard({ accounts, surebets, embedded = f
       const profit = legs.reduce((sum, l) => sum + calculateLegProfit(l), 0)
       const roi = calculateROI(profit, turnover)
 
-      const surebetsWithPendingForAccount = surebets.filter((s) =>
+      const surebetsWithPendingForAccount = realSurebets.filter((s) =>
         (s.legs || []).some(
           (l) => l.account === acc.account_number && l.bookmaker === acc.bookmaker && l.status === 'pending'
         )
@@ -72,9 +76,9 @@ export default function AccountStatsDashboard({ accounts, surebets, embedded = f
         hasMultiLegPending,
       }
     })
-  }, [accounts, surebets])
+  }, [realAccounts, surebets, accounts])
 
-  if (accounts.length === 0) {
+  if (realAccounts.length === 0) {
     const emptyMsg = (
       <p className="text-sm text-gray-500">
         Пока нет добавленных аккаунтов. Сначала добавьте аккаунты в разделе «Аккаунты».

@@ -1,16 +1,24 @@
 var SHEET_NAME = 'Выгрузка с сайта';
+var TEST_SHEET_NAME = 'Тест аккаунты';
 
 function doPost(e) {
   var data = JSON.parse(e.postData.contents);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-  }
 
   if (data.action === 'delete') {
-    deleteRowsByBetId(sheet, data.surebetId);
+    // The client doesn't always know which sheet a bet ended up in (its
+    // test status could theoretically change), so just check both.
+    var mainSheet = ss.getSheetByName(SHEET_NAME);
+    var testSheet = ss.getSheetByName(TEST_SHEET_NAME);
+    if (mainSheet) deleteRowsByBetId(mainSheet, data.surebetId);
+    if (testSheet) deleteRowsByBetId(testSheet, data.surebetId);
     return jsonResponse({ status: 'ok' });
+  }
+
+  var targetSheetName = data.isTest ? TEST_SHEET_NAME : SHEET_NAME;
+  var sheet = ss.getSheetByName(targetSheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(targetSheetName);
   }
 
   if (data.action === 'sync') {

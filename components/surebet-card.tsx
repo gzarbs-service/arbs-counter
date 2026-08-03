@@ -7,6 +7,7 @@ import { calculateSurebetProfit, calculateROI, calculateLegProfit, calculateLegP
 import { buildCommentWithAutoErrors, getErrorReasons, stripAutoErrorComment } from '@/lib/worker-stats'
 import { notifyError } from '@/lib/notify-error'
 import { operatorBadgeColor } from '@/lib/operator-badge'
+import { isTestSurebet, TEST_ACCOUNT_BADGE_CLASS } from '@/lib/test-account'
 import { SPORTS, MARKETS } from '@/lib/constants'
 import { useCurrency } from './currency-context'
 import ComboboxInput from './combobox-input'
@@ -124,6 +125,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
   const potentialROIMax = calculateROI(potentialRange.max, Number(surebet.bank))
   const isSingleOutcome = potentialRange.min === potentialRange.max
   const isMultiLeg = (surebet.legs || []).length > 2
+  const isTest = useMemo(() => isTestSurebet(surebet, accounts), [surebet, accounts])
 
   const setStatus = (legId: string, status: Leg['status']) => {
     setDraftStatuses((prev) => ({ ...prev, [legId]: status }))
@@ -132,6 +134,7 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
   const buildSyncPayload = (legs: Leg[], sportValue?: string, commentValue?: string, settledAtValue?: string) => {
     const endDate = settledAtValue ? formatDate(settledAtValue) : ''
     return {
+      isTest,
       rows: legs.map((leg) => ({
         account: leg.account,
         bookmaker: leg.bookmaker,
@@ -421,6 +424,11 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
                 {isAdmin && username && (
                   <span className={`px-2 py-0.5 rounded-full text-xs ${operatorBadgeColor(surebet.user_id)}`}>
                     {username}
+                  </span>
+                )}
+                {isTest && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${TEST_ACCOUNT_BADGE_CLASS}`}>
+                    Test account
                   </span>
                 )}
               </p>
