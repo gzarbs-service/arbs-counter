@@ -13,6 +13,7 @@ import SurebetCard from './surebet-card'
 import FiltersPanel from './filters-panel'
 import CsvExport from './csv-export'
 import CurrencySelect from './currency-select'
+import NotificationBell from './notification-bell'
 
 interface JournalPageProps {
   initialProfile: Profile | null
@@ -88,6 +89,7 @@ export default function JournalPage({
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               <CurrencySelect />
+              {isAdmin && <NotificationBell />}
               <button
                 onClick={() => fetchSurebets()}
                 className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium"

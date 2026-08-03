@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Account, Leg, SurebetWithLegs } from '@/lib/types'
 import { calculateSurebetProfit, calculateROI, calculateLegProfit, calculateLegPayout, calculatePotentialProfitRange, hasPendingLegs, formatMoney, formatDate } from '@/lib/calc'
-import { buildCommentWithAutoErrors, stripAutoErrorComment } from '@/lib/worker-stats'
+import { buildCommentWithAutoErrors, getErrorReasons, stripAutoErrorComment } from '@/lib/worker-stats'
+import { notifyError } from '@/lib/notify-error'
 import { SPORTS, MARKETS } from '@/lib/constants'
 import { useCurrency } from './currency-context'
 import ComboboxInput from './combobox-input'
@@ -187,6 +188,17 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       }
     }
 
+    const errorReasons = getErrorReasons({ ...surebet, legs: updatedLegs, comment: currentComment })
+    if (errorReasons.length > 0) {
+      notifyError(supabaseClient, {
+        surebetId: surebet.id,
+        workerId: surebet.user_id,
+        workerUsername: username || surebet.user_id,
+        matchName: surebet.match_name,
+        reasons: errorReasons,
+      })
+    }
+
     runSync(buildSyncPayload(updatedLegs, undefined, currentComment, settledAt || ''))
 
     setDraftStatuses({})
@@ -358,6 +370,17 @@ export default function SurebetCard({ surebet, isAdmin, username, accounts = [],
       if (!error) {
         settledAt = now
       }
+    }
+
+    const errorReasons = getErrorReasons({ ...surebet, match_name: matchName, sport, comment: autoComment, legs: finalLegs })
+    if (errorReasons.length > 0) {
+      notifyError(supabaseClient, {
+        surebetId: surebet.id,
+        workerId: surebet.user_id,
+        workerUsername: username || surebet.user_id,
+        matchName,
+        reasons: errorReasons,
+      })
     }
 
     runSync(buildSyncPayload(finalLegs, sport, autoComment, settledAt || ''))

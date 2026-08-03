@@ -16,6 +16,7 @@ import AccountStatsDashboard from './account-stats-dashboard'
 import AdminSection from './admin-section'
 import CurrencySelect from './currency-select'
 import Modal from './modal'
+import NotificationBell from './notification-bell'
 
 interface DashboardAppProps {
   initialProfile: Profile | null
@@ -93,6 +94,7 @@ export default function DashboardApp({
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               <CurrencySelect />
+              {isAdmin && <NotificationBell />}
               <button
                 onClick={() => setShowAccounts(true)}
                 className="px-4 py-2 rounded-lg glass hover:border-cyan-400/40 transition text-sm font-medium"

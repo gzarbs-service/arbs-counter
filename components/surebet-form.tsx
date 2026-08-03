@@ -3,7 +3,8 @@
 import { useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { calculateExpectedProfitFromStakes, calculateROI, formatMoney, formatDate } from '@/lib/calc'
-import { buildCommentWithAutoErrors } from '@/lib/worker-stats'
+import { buildCommentWithAutoErrors, getErrorReasons } from '@/lib/worker-stats'
+import { notifyError } from '@/lib/notify-error'
 import { SPORTS, MARKETS } from '@/lib/constants'
 import ComboboxInput from './combobox-input'
 import AccountSelect from './account-select'
@@ -222,7 +223,8 @@ export default function SurebetForm({ accounts, isAdmin, onCreated }: SurebetFor
       status: 'pending',
       created_at: surebet.created_at,
     }))
-    const autoComment = buildCommentWithAutoErrors({ ...surebet, legs: insertedLegs } as SurebetWithLegs)
+    const finalSurebet = { ...surebet, legs: insertedLegs } as SurebetWithLegs
+    const autoComment = buildCommentWithAutoErrors(finalSurebet)
     if (autoComment !== (surebet.comment || '')) {
       const { error: commentError } = await supabase
         .from('surebets')
@@ -231,6 +233,22 @@ export default function SurebetForm({ accounts, isAdmin, onCreated }: SurebetFor
       if (!commentError) {
         surebet.comment = autoComment
       }
+    }
+
+    const errorReasons = getErrorReasons(finalSurebet)
+    if (errorReasons.length > 0) {
+      const { data: workerProfile } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', user.id)
+        .single()
+      notifyError(supabase, {
+        surebetId: surebet.id,
+        workerId: user.id,
+        workerUsername: workerProfile?.username || user.id,
+        matchName: surebet.match_name,
+        reasons: errorReasons,
+      })
     }
 
     const sheetRows = legs.map((leg) => ({
