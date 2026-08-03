@@ -11,7 +11,7 @@ const OPERATOR_BADGE_COLORS = [
   'bg-pink-500/20 text-pink-300 border border-pink-500/30',
   'bg-amber-500/20 text-amber-300 border border-amber-500/30',
   'bg-teal-500/20 text-teal-300 border border-teal-500/30',
-  'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30',
+  'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
 ]
 
 export function operatorBadgeColor(userId: string): string {
