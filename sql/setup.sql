@@ -30,7 +30,8 @@ create table if not exists public.surebets (
   bank numeric not null,
   status text not null default 'pending',
   comment text,
-  created_at timestamp with time zone default now()
+  created_at timestamp with time zone default now(),
+  settled_at timestamp with time zone
 );
 
 -- Legs of a surebet
@@ -219,3 +220,9 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Performance indexes (see also sql/migration_add_performance_indexes.sql
+-- for applying this to an already-existing database).
+create index if not exists idx_surebets_user_id on public.surebets (user_id);
+create index if not exists idx_surebets_created_at on public.surebets (created_at desc);
+create index if not exists idx_legs_surebet_id on public.legs (surebet_id);
