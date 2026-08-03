@@ -27,6 +27,11 @@ interface BackfillState {
   done: number
   total: number
   updated: number
+  syncFailed: number
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export default function AdminSection({ initialUsers, surebets, accounts, onUpdate, currentUsername }: AdminSectionProps) {
@@ -45,44 +50,58 @@ export default function AdminSection({ initialUsers, surebets, accounts, onUpdat
       return
     }
 
-    setBackfill({ running: true, done: 0, total: surebets.length, updated: 0 })
+    setBackfill({ running: true, done: 0, total: surebets.length, updated: 0, syncFailed: 0 })
     let updated = 0
+    let syncFailed = 0
 
     for (let i = 0; i < surebets.length; i++) {
       const s = surebets[i]
       const newComment = buildCommentWithAutoErrors(s)
-      if (newComment !== (s.comment || '')) {
+      const commentChanged = newComment !== (s.comment || '')
+
+      if (commentChanged) {
         const { error } = await supabase.from('surebets').update({ comment: newComment }).eq('id', s.id)
-        if (!error) {
-          updated++
-          const rows = (s.legs || []).map((leg) => ({
-            account: leg.account,
-            bookmaker: leg.bookmaker,
-            eventNumber: '',
-            betDate: formatDate(s.created_at),
-            sport: s.sport,
-            market: leg.market,
-            stake: leg.stake,
-            odds: leg.odds,
-            endDate: s.settled_at ? formatDate(s.settled_at) : '',
-            status: leg.status,
-            profit: calculateLegProfit(leg),
-            comment: newComment,
-            betId: s.id,
-          }))
-          await fetch('/api/sheets-sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'sync', surebetId: s.id, rows }),
-          }).catch(() => {
-            // Silently ignore sync errors so backfill never gets stuck on one row.
-          })
-        }
+        if (!error) updated++
       }
-      setBackfill({ running: true, done: i + 1, total: surebets.length, updated })
+
+      // Always (re-)sync to Sheets, even when the comment didn't change in
+      // this run, so re-clicking the button can retry any row whose sheet
+      // sync failed on a previous run without needing another DB change.
+      const rows = (s.legs || []).map((leg) => ({
+        account: leg.account,
+        bookmaker: leg.bookmaker,
+        eventNumber: '',
+        betDate: formatDate(s.created_at),
+        sport: s.sport,
+        market: leg.market,
+        stake: leg.stake,
+        odds: leg.odds,
+        endDate: s.settled_at ? formatDate(s.settled_at) : '',
+        status: leg.status,
+        profit: calculateLegProfit(leg),
+        comment: newComment,
+        betId: s.id,
+      }))
+      // Apps Script processes one doPost at a time; hammering it with an
+      // unthrottled sequential burst can cause individual calls to fail
+      // silently. Add a small delay and verify the response so failures
+      // are surfaced instead of being swallowed.
+      try {
+        const res = await fetch('/api/sheets-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'sync', surebetId: s.id, rows }),
+        })
+        if (!res.ok) syncFailed++
+      } catch {
+        syncFailed++
+      }
+      await delay(400)
+
+      setBackfill({ running: true, done: i + 1, total: surebets.length, updated, syncFailed })
     }
 
-    setBackfill({ running: false, done: surebets.length, total: surebets.length, updated })
+    setBackfill({ running: false, done: surebets.length, total: surebets.length, updated, syncFailed })
     onUpdate?.()
   }
 
@@ -102,6 +121,9 @@ export default function AdminSection({ initialUsers, surebets, accounts, onUpdat
             {backfill && !backfill.running && (
               <p className="text-xs text-gray-400">
                 Готово. Обновлено комментариев: {backfill.updated} из {backfill.total}.
+                {backfill.syncFailed > 0 && (
+                  <span className="text-red-400"> Не дошло до таблицы: {backfill.syncFailed}.</span>
+                )}
               </p>
             )}
           </div>
