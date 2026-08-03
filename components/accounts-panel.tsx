@@ -7,6 +7,27 @@ import ComboboxInput from './combobox-input'
 
 const BOOKMAKERS = ['Fezbet', 'N1bet', 'Stonevegas', 'Pinnacle', 'Bookmaker.xyz']
 
+const OPERATOR_BADGE_COLORS = [
+  'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+  'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30',
+  'bg-lime-500/20 text-lime-300 border border-lime-500/30',
+  'bg-orange-500/20 text-orange-300 border border-orange-500/30',
+  'bg-pink-500/20 text-pink-300 border border-pink-500/30',
+  'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30',
+  'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+  'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
+]
+
+// Deterministic so the same operator always gets the same badge color across
+// renders/sessions, without needing to store a color per profile.
+function operatorBadgeColor(userId: string): string {
+  let hash = 0
+  for (let i = 0; i < userId.length; i++) {
+    hash = (hash * 31 + userId.charCodeAt(i)) >>> 0
+  }
+  return OPERATOR_BADGE_COLORS[hash % OPERATOR_BADGE_COLORS.length]
+}
+
 interface AccountsPanelProps {
   initialAccounts: Account[]
   onChange: (accounts: Account[]) => void
@@ -198,7 +219,9 @@ export default function AccountsPanel({ initialAccounts, onChange, embedded = fa
                 <span className="text-white">
                   {acc.bookmaker} <span className="text-gray-400">{acc.account_number}</span>
                   {isAdmin && (
-                    <span className="ml-2 text-xs text-cyan-300">· {workerName(acc.user_id)}</span>
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${operatorBadgeColor(acc.user_id)}`}>
+                      {workerName(acc.user_id)}
+                    </span>
                   )}
                 </span>
                 <div className="flex items-center gap-3">
